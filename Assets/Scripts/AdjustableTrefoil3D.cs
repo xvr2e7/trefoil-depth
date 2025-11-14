@@ -29,8 +29,6 @@ public class AdjustableTrefoil3D : MonoBehaviour
 
     void Start()
     {
-        SetLayerRecursively(gameObject, LayerMask.NameToLayer("Default"));
-
         meshRenderer = GetComponent<MeshRenderer>();
         meshRenderer.material = new Material(Shader.Find("Standard"));
         meshRenderer.material.color = Color.white;
@@ -45,16 +43,12 @@ public class AdjustableTrefoil3D : MonoBehaviour
     void Update()
     {
         InputDevice rightHandDevice = InputDevices.GetDeviceAtXRNode(XRNode.RightHand);
-        if (rightHandDevice.TryGetFeatureValue(CommonUsages.primary2DAxis, out Vector2 rightJoystick))
+        if (rightHandDevice.TryGetFeatureValue(CommonUsages.primary2DAxis, out Vector2 joystick))
         {
-            amplitude += rightJoystick.y * amplitudeSpeed * Time.deltaTime;
+            amplitude += joystick.y * amplitudeSpeed * Time.deltaTime;
             amplitude = Mathf.Clamp(amplitude, minAmplitude, maxAmplitude);
-        }
 
-        InputDevice leftHandDevice = InputDevices.GetDeviceAtXRNode(XRNode.LeftHand);
-        if (leftHandDevice.TryGetFeatureValue(CommonUsages.primary2DAxis, out Vector2 leftJoystick))
-        {
-            confidence += leftJoystick.x * confidenceSpeed * Time.deltaTime;
+            confidence += joystick.x * confidenceSpeed * Time.deltaTime;
             confidence = Mathf.Clamp01(confidence);
         }
 
@@ -153,14 +147,5 @@ public class AdjustableTrefoil3D : MonoBehaviour
     public void SetVisibility(bool visible)
     {
         meshRenderer.enabled = visible;
-    }
-
-    void SetLayerRecursively(GameObject obj, int layer)
-    {
-        obj.layer = layer;
-        foreach (Transform child in obj.transform)
-        {
-            SetLayerRecursively(child.gameObject, layer);
-        }
     }
 }

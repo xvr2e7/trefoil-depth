@@ -17,16 +17,15 @@ public class TrefoilGenerator : MonoBehaviour
 
     void Start()
     {
-        gameObject.layer = LayerMask.NameToLayer("RightEyeOnly");
-
         lineRenderer = gameObject.AddComponent<LineRenderer>();
         lineRenderer.useWorldSpace = false;
         lineRenderer.startWidth = width;
         lineRenderer.endWidth = width;
         lineRenderer.positionCount = segments;
-        lineRenderer.material = new Material(Shader.Find("Sprites/Default"));
-        lineRenderer.startColor = Color.black;
-        lineRenderer.endColor = Color.black;
+
+        Material mat = new Material(Shader.Find("Custom/RightEyeOnly"));
+        mat.SetColor("_Color", Color.black);
+        lineRenderer.material = mat;
 
         GenerateTrefoil();
     }
