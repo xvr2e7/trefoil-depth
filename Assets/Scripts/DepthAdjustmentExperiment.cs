@@ -44,6 +44,13 @@ public class DepthAdjustmentExperiment : MonoBehaviour
 
     void Start()
     {
+        StartCoroutine(InitializeExperiment());
+    }
+
+    IEnumerator InitializeExperiment()
+    {
+        yield return null; // Wait one frame for all Start() methods to complete
+
         InitializeInputDevices();
 
         practiceTrials = DepthAdjustmentTrialGenerator.GeneratePracticeTrials();
@@ -59,11 +66,12 @@ public class DepthAdjustmentExperiment : MonoBehaviour
             adjustableModel.SetVisibility(false);
         }
 
-        ShowInstruction("Welcome to the Depth Adjustment Task!\n\nPress 'A' to begin.");
+        ShowInstruction("Welcome to the Experiment!\n\nPress 'A' to begin.");
 
         if (autoStart)
         {
             experimentStarted = true;
+            experimentRunning = true;
             StartCoroutine(RunExperiment());
         }
     }
