@@ -49,7 +49,7 @@ public class DepthAdjustmentExperiment : MonoBehaviour
 
     IEnumerator InitializeExperiment()
     {
-        yield return null; // Wait one frame for all Start() methods to complete
+        yield return null;
 
         InitializeInputDevices();
 
@@ -130,9 +130,7 @@ public class DepthAdjustmentExperiment : MonoBehaviour
     {
         currentState = ExperimentState.Welcome;
         ShowInstruction("In this task, you will see a rotating black curve (right eye only).\n\n" +
-                       "Adjust the white curve using the RIGHT joystick:\n" +
-                       "- Y-axis (up/down) for depth adjustment\n" +
-                       "- X-axis (left/right) for confidence rating\n\n" +
+                       "Adjust the white curve by moving the joystick up or down.\n" +
                        "Press 'A' to continue.");
 
         yield return new WaitForSeconds(0.5f);
@@ -143,8 +141,7 @@ public class DepthAdjustmentExperiment : MonoBehaviour
     IEnumerator PracticePhase()
     {
         currentState = ExperimentState.PracticeIntro;
-        ShowInstruction("Practice Trials\n\n" +
-                       "You will now have 2 practice trials.\n\n" +
+        ShowInstruction("You will now have 2 practice trials.\n\n" +
                        "When ready, press 'A' to submit your adjustment.\n\n" +
                        "Press 'A' to start practice.");
 
@@ -165,10 +162,8 @@ public class DepthAdjustmentExperiment : MonoBehaviour
     IEnumerator MainExperimentPhase()
     {
         currentState = ExperimentState.MainIntro;
-        ShowInstruction("Main Experiment\n\n" +
-                       "The practice is complete.\n\n" +
-                       "You will now complete " + mainTrials.Count + " trials.\n\n" +
-                       "Press 'A' to begin.");
+        ShowInstruction("The practice is complete.\n\n" +
+                       "Press 'A' to begin main experiment.");
 
         yield return new WaitForSeconds(0.5f);
         yield return new WaitUntil(() => GetButtonDown());
@@ -184,8 +179,7 @@ public class DepthAdjustmentExperiment : MonoBehaviour
 
             if ((i + 1) % 10 == 0 && i + 1 < mainTrials.Count)
             {
-                ShowInstruction($"Break\n\nCompleted {i + 1} of {mainTrials.Count} trials.\n\n" +
-                               "Take a short break if needed.\n\n" +
+                ShowInstruction("Take a short break if needed.\n\n" +
                                "Press 'A' to continue.");
 
                 yield return new WaitForSeconds(0.5f);
@@ -200,15 +194,13 @@ public class DepthAdjustmentExperiment : MonoBehaviour
         currentState = ExperimentState.End;
         SaveData();
         ShowInstruction("Experiment Complete!\n\n" +
-                       "Thank you for your participation.\n\n" +
-                       "Data has been saved.");
+                       "Thank you for your participation.\n\n");
         yield return new WaitForSeconds(3f);
     }
 
     IEnumerator RunTrial(DepthAdjustmentTrial trial, bool practice)
     {
-        ShowInstruction("Adjust the white curve to match the black curve\n\n" +
-                       "Press 'A' when ready to submit");
+        ShowInstruction("");
 
         if (stimulusTrefoil != null)
         {
