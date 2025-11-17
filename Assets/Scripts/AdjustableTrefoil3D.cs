@@ -19,10 +19,6 @@ public class AdjustableTrefoil3D : MonoBehaviour
     public float minAmplitude = -2f;
     public float maxAmplitude = 2f;
 
-    [Header("Confidence")]
-    public float confidence = 0f;
-    public float confidenceSpeed = 1f;
-
     private Mesh mesh;
     private Vector3[] pathPoints;
     private MeshRenderer meshRenderer;
@@ -47,9 +43,6 @@ public class AdjustableTrefoil3D : MonoBehaviour
         {
             amplitude += joystick.y * amplitudeSpeed * Time.deltaTime;
             amplitude = Mathf.Clamp(amplitude, minAmplitude, maxAmplitude);
-
-            confidence += joystick.x * confidenceSpeed * Time.deltaTime;
-            confidence = Mathf.Clamp01(confidence);
         }
 
         GeneratePath();
@@ -134,14 +127,13 @@ public class AdjustableTrefoil3D : MonoBehaviour
         R2 = r2;
         phaseOffset = phase;
         amplitude = 0f;
-        confidence = 0f;
         GeneratePath();
         GenerateTubeMesh();
     }
 
-    public (float, float) GetAdjustmentValues()
+    public float GetAdjustmentValue()
     {
-        return (amplitude, confidence);
+        return amplitude;
     }
 
     public void SetVisibility(bool visible)

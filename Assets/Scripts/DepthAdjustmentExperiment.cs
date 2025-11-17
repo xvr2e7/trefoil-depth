@@ -12,6 +12,7 @@ public class DepthAdjustmentExperiment : MonoBehaviour
     public TrefoilGenerator stimulusTrefoil;
     public AdjustableTrefoil3D adjustableModel;
     public TextMeshProUGUI instructionText;
+    public ConfidenceSlider confidenceSlider;
 
     [Header("Experiment Settings")]
     public string participantID = "P001";
@@ -230,12 +231,7 @@ public class DepthAdjustmentExperiment : MonoBehaviour
         yield return new WaitUntil(() => GetButtonDown());
 
         float reactionTime = Time.time - trialStartTime;
-        var (amplitude, confidence) = adjustableModel != null ? adjustableModel.GetAdjustmentValues() : (0f, 0f);
-
-        if (!practice)
-        {
-            records.Add(new TrialRecord(currentTrialIndex, trial, amplitude, confidence, reactionTime));
-        }
+        float amplitude = adjustableModel != null ? adjustableModel.GetAdjustmentValue() : 0f;
 
         if (stimulusTrefoil != null)
         {
@@ -245,6 +241,26 @@ public class DepthAdjustmentExperiment : MonoBehaviour
         if (adjustableModel != null)
         {
             adjustableModel.SetVisibility(false);
+        }
+
+        if (confidenceSlider != null)
+        {
+            confidenceSlider.Show();
+        }
+
+        yield return new WaitForSeconds(0.3f);
+        yield return new WaitUntil(() => GetButtonDown());
+
+        float confidence = confidenceSlider != null ? confidenceSlider.GetConfidence() : 0f;
+
+        if (confidenceSlider != null)
+        {
+            confidenceSlider.Hide();
+        }
+
+        if (!practice)
+        {
+            records.Add(new TrialRecord(currentTrialIndex, trial, amplitude, confidence, reactionTime));
         }
 
         yield return new WaitForSeconds(1f);
