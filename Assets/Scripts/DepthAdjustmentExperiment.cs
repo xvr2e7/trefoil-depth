@@ -130,7 +130,7 @@ public class DepthAdjustmentExperiment : MonoBehaviour
     IEnumerator WelcomePhase()
     {
         currentState = ExperimentState.Welcome;
-        ShowInstruction("In this task, you will see a rotating black curve (right eye only).\n\n" +
+        ShowInstruction("In this task, you will see a rotating black curve.\n\n" +
                        "Adjust the white curve by moving the joystick up or down.\n" +
                        "Press 'A' to continue.");
 
