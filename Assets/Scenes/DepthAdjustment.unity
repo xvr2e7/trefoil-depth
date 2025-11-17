@@ -300,8 +300,8 @@ MonoBehaviour:
   amplitude: 0
   phaseOffset: 0
   amplitudeSpeed: 2
-  minAmplitude: -2
-  maxAmplitude: 2
+  minAmplitude: -5
+  maxAmplitude: 5
 --- !u!23 &752468351
 MeshRenderer:
   m_ObjectHideFlags: 0

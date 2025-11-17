@@ -15,9 +15,9 @@ public class AdjustableTrefoil3D : MonoBehaviour
     public float phaseOffset = 0f;
 
     [Header("Control Settings")]
-    public float amplitudeSpeed = 2f;
-    public float minAmplitude = -2f;
-    public float maxAmplitude = 2f;
+    public float amplitudeSpeed = 1f;
+    public float minAmplitude = -5f;
+    public float maxAmplitude = 5f;
 
     private Mesh mesh;
     private Vector3[] pathPoints;
@@ -26,7 +26,7 @@ public class AdjustableTrefoil3D : MonoBehaviour
     void Start()
     {
         meshRenderer = GetComponent<MeshRenderer>();
-        meshRenderer.material = new Material(Shader.Find("Standard"));
+        meshRenderer.material = new Material(Shader.Find("Custom/LeftEyeOnly"));
         meshRenderer.material.color = Color.white;
 
         mesh = new Mesh();
