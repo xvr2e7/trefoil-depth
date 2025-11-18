@@ -10,7 +10,7 @@ public class DepthAdjustmentExperiment : MonoBehaviour
 {
     [Header("Scene References")]
     public TrefoilGenerator stimulusTrefoil;
-    public AdjustableTrefoil3D adjustableModel;
+    public FourierTrefoil3D adjustableModel;
     public TextMeshProUGUI instructionText;
     public ConfidenceSlider confidenceSlider;
 
@@ -130,9 +130,10 @@ public class DepthAdjustmentExperiment : MonoBehaviour
     IEnumerator WelcomePhase()
     {
         currentState = ExperimentState.Welcome;
-        ShowInstruction("In this task, you will see a rotating black curve.\n\n" +
-                       "Adjust the white curve by moving the joystick up or down.\n" +
-                       "Press 'A' to continue.");
+        ShowInstruction("In this task, you will see a rotating black curve.\n" +
+                        "Adjust the white curve next to it to match the 3D shape you see.\n\n" +
+                        "Moving the joystick up or down changes the vertical depth, left or right changes the horizontal depth.\n\n" +
+                        "Press 'A' to continue.");
 
         yield return new WaitForSeconds(0.5f);
         yield return new WaitUntil(() => GetButtonDown());
