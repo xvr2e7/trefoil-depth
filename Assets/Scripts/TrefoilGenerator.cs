@@ -1,33 +1,35 @@
 using UnityEngine;
 
+[RequireComponent(typeof(MeshFilter), typeof(MeshRenderer))]
 public class TrefoilGenerator : MonoBehaviour
 {
     [Header("Trefoil Parameters")]
     public float R1 = 1.0f;
     public float R2 = 1.5f;
-    public float width = 0.02f;
     public int segments = 1000;
+    public float width = 0.1f;
 
     [Header("Rotation")]
     public float rotationSpeed = 90f;
     public int direction = 1;
 
-    private LineRenderer lineRenderer;
+    private Mesh mesh;
+    private Vector3[] pathPoints;
+    private MeshRenderer meshRenderer;
     private float currentAngle = 0f;
 
     void Start()
     {
-        lineRenderer = gameObject.AddComponent<LineRenderer>();
-        lineRenderer.useWorldSpace = false;
-        lineRenderer.startWidth = width;
-        lineRenderer.endWidth = width;
-        lineRenderer.positionCount = segments;
-
+        meshRenderer = GetComponent<MeshRenderer>();
         Material mat = new Material(Shader.Find("Custom/RightEyeOnly"));
-        mat.SetColor("_Color", Color.black);
-        lineRenderer.material = mat;
+        mat.color = Color.black;
+        meshRenderer.material = mat;
 
-        GenerateTrefoil();
+        mesh = new Mesh();
+        GetComponent<MeshFilter>().mesh = mesh;
+
+        GeneratePath();
+        GenerateRibbonMesh();
     }
 
     void Update()
@@ -36,15 +38,52 @@ public class TrefoilGenerator : MonoBehaviour
         transform.localRotation = Quaternion.Euler(0, 0, currentAngle);
     }
 
-    void GenerateTrefoil()
+    void GeneratePath()
     {
+        pathPoints = new Vector3[segments];
         for (int i = 0; i < segments; i++)
         {
-            float phi = i * 2 * Mathf.PI / (segments - 1);
+            float phi = i * 2 * Mathf.PI / segments;
             float x = R1 * Mathf.Cos(phi) + R2 * Mathf.Cos(2 * phi);
             float y = R1 * Mathf.Sin(phi) - R2 * Mathf.Sin(2 * phi);
-            lineRenderer.SetPosition(i, new Vector3(x, y, 0));
+            pathPoints[i] = new Vector3(x, y, 0);
         }
+    }
+
+    void GenerateRibbonMesh()
+    {
+        Vector3[] vertices = new Vector3[segments * 2];
+        int[] triangles = new int[segments * 6];
+
+        for (int i = 0; i < segments; i++)
+        {
+            Vector3 point = pathPoints[i];
+            Vector3 nextPoint = pathPoints[(i + 1) % segments];
+            Vector3 tangent = (nextPoint - point).normalized;
+            Vector3 perpendicular = new Vector3(-tangent.y, tangent.x, 0) * width * 0.5f;
+
+            vertices[i * 2] = point + perpendicular;
+            vertices[i * 2 + 1] = point - perpendicular;
+        }
+
+        int triIndex = 0;
+        for (int i = 0; i < segments; i++)
+        {
+            int nextI = (i + 1) % segments;
+
+            triangles[triIndex++] = i * 2;
+            triangles[triIndex++] = nextI * 2;
+            triangles[triIndex++] = i * 2 + 1;
+
+            triangles[triIndex++] = i * 2 + 1;
+            triangles[triIndex++] = nextI * 2;
+            triangles[triIndex++] = nextI * 2 + 1;
+        }
+
+        mesh.Clear();
+        mesh.vertices = vertices;
+        mesh.triangles = triangles;
+        mesh.RecalculateNormals();
     }
 
     public void ResetRotation()
@@ -59,12 +98,13 @@ public class TrefoilGenerator : MonoBehaviour
         R2 = r2;
         rotationSpeed = speed;
         direction = dir;
-        GenerateTrefoil();
+        GeneratePath();
+        GenerateRibbonMesh();
         ResetRotation();
     }
 
     public void SetVisibility(bool visible)
     {
-        lineRenderer.enabled = visible;
+        meshRenderer.enabled = visible;
     }
 }
