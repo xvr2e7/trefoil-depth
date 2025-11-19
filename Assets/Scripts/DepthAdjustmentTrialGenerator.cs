@@ -28,11 +28,11 @@ public class TrialRecord
     public float rotationSpeed;
     public int direction;
     public float adjustedAmplitude;
-    public float confidence;
+    // public float confidence;
     public float reactionTime;
     public string timestamp;
 
-    public TrialRecord(int num, DepthAdjustmentTrial trial, float amp, float conf, float rt)
+    public TrialRecord(int num, DepthAdjustmentTrial trial, float amp, float rt)
     {
         trialNumber = num;
         R1 = trial.R1;
@@ -40,7 +40,7 @@ public class TrialRecord
         rotationSpeed = trial.rotationSpeed;
         direction = trial.direction;
         adjustedAmplitude = amp;
-        confidence = conf;
+        // confidence = conf;
         reactionTime = rt;
         timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
     }

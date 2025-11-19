@@ -171,7 +171,6 @@ MonoBehaviour:
   instructionText: {fileID: 2133389898}
   leftEyeText: {fileID: 1799357935}
   rightEyeText: {fileID: 1240839420}
-  confidenceSlider: {fileID: 1212830840}
   participantID: P001
   autoStart: 0
 --- !u!1 &600133653
@@ -207,7 +206,7 @@ RectTransform:
   m_Father: {fileID: 794011539}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 20, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
@@ -770,7 +769,7 @@ RectTransform:
   m_Father: {fileID: 1943773189}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 10, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
@@ -829,7 +828,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1212830838
 RectTransform:
   m_ObjectHideFlags: 0

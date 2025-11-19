@@ -14,7 +14,7 @@ public class DepthAdjustmentExperiment : MonoBehaviour
     public TextMeshProUGUI instructionText;
     public TextMeshProUGUI leftEyeText;
     public TextMeshProUGUI rightEyeText;
-    public ConfidenceSlider confidenceSlider;
+    // public ConfidenceSlider confidenceSlider;
 
     [Header("Experiment Settings")]
     public string participantID = "P001";
@@ -215,10 +215,12 @@ public class DepthAdjustmentExperiment : MonoBehaviour
     {
         currentState = ExperimentState.PracticeIntro;
         ShowInstruction("In this task, you will see a rotating black curve.\n\n" +
-                       "Adjust the white curve by moving the joystick to match the 3D shape you perceive.\n\n" +
-                       "You will have 2 practice trials.\n\n" +
-                       "Press 'A' to submit your adjustment.\n\n" +
-                       "Press 'A' to start practice.");
+                        "Adjust the white curve by moving the joystick to match the 3D shape you perceive.\n\n" +
+                        "Move up/down will change the vertical depth of the curve.\n" +
+                        "Move left/right will change the horizontal depth.\n\n" +
+                        "You will have 2 practice trials.\n\n" +
+                        "Press 'A' to submit your adjustment.\n" +
+                        "Press 'A' to start practice.");
 
         yield return new WaitForSeconds(0.5f);
         yield return new WaitUntil(() => GetButtonDown());
@@ -317,24 +319,24 @@ public class DepthAdjustmentExperiment : MonoBehaviour
             adjustableModel.SetVisibility(false);
         }
 
-        if (confidenceSlider != null)
-        {
-            confidenceSlider.Show();
-        }
+        // if (confidenceSlider != null)
+        // {
+        //     confidenceSlider.Show();
+        // }
 
-        yield return new WaitForSeconds(0.3f);
-        yield return new WaitUntil(() => GetButtonDown());
+        // yield return new WaitForSeconds(0.3f);
+        // yield return new WaitUntil(() => GetButtonDown());
 
-        float confidence = confidenceSlider != null ? confidenceSlider.GetConfidence() : 0f;
+        // float confidence = confidenceSlider != null ? confidenceSlider.GetConfidence() : 0f;
 
-        if (confidenceSlider != null)
-        {
-            confidenceSlider.Hide();
-        }
+        // if (confidenceSlider != null)
+        // {
+        //     confidenceSlider.Hide();
+        // }
 
         if (!practice)
         {
-            records.Add(new TrialRecord(currentTrialIndex, trial, amplitude, confidence, reactionTime));
+            records.Add(new TrialRecord(currentTrialIndex, trial, amplitude, reactionTime));
         }
 
         yield return new WaitForSeconds(1f);
@@ -397,11 +399,11 @@ public class DepthAdjustmentExperiment : MonoBehaviour
         string path = Path.Combine(Application.persistentDataPath, filename);
 
         StringBuilder csv = new StringBuilder();
-        csv.AppendLine("TrialNumber,R1,R2,RotationSpeed,Direction,AdjustedAmplitude,Confidence,ReactionTime,Timestamp");
+        csv.AppendLine("TrialNumber,R1,R2,RotationSpeed,Direction,AdjustedAmplitude,ReactionTime,Timestamp");
 
         foreach (var record in records)
         {
-            csv.AppendLine($"{record.trialNumber},{record.R1},{record.R2},{record.rotationSpeed},{record.direction},{record.adjustedAmplitude},{record.confidence},{record.reactionTime},{record.timestamp}");
+            csv.AppendLine($"{record.trialNumber},{record.R1},{record.R2},{record.rotationSpeed},{record.direction},{record.adjustedAmplitude},{record.reactionTime},{record.timestamp}");
         }
 
         File.WriteAllText(path, csv.ToString());
