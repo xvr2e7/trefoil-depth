@@ -22,11 +22,14 @@ public class FourierTrefoil3D : MonoBehaviour
     public float coefficientSpeed = 1f;
     public float minCoefficient = -3f;
     public float maxCoefficient = 3f;
+    public float rotationSpeed = 30f;
 
     private Mesh mesh;
     private Vector3[] coordinates;
     private MeshFilter meshFilter;
     private MeshRenderer meshRenderer;
+    private bool rotationMode = false;
+    private float currentRotation = 0f;
 
     void Start()
     {
@@ -51,15 +54,23 @@ public class FourierTrefoil3D : MonoBehaviour
         InputDevice rightHandDevice = InputDevices.GetDeviceAtXRNode(XRNode.RightHand);
         if (rightHandDevice.TryGetFeatureValue(CommonUsages.primary2DAxis, out Vector2 joystick))
         {
-            a1 += joystick.y * coefficientSpeed * Time.deltaTime;
-            a1 = Mathf.Clamp(a1, minCoefficient, maxCoefficient);
+            if (rotationMode)
+            {
+                currentRotation += joystick.x * rotationSpeed * Time.deltaTime;
+                transform.localRotation = Quaternion.Euler(0, currentRotation, 0);
+            }
+            else
+            {
+                a1 += joystick.y * coefficientSpeed * Time.deltaTime;
+                a1 = Mathf.Clamp(a1, minCoefficient, maxCoefficient);
 
-            b1 += joystick.x * coefficientSpeed * Time.deltaTime;
-            b1 = Mathf.Clamp(b1, minCoefficient, maxCoefficient);
+                b1 += joystick.x * coefficientSpeed * Time.deltaTime;
+                b1 = Mathf.Clamp(b1, minCoefficient, maxCoefficient);
+
+                GenerateCoordinates();
+                GenerateTubeMesh();
+            }
         }
-
-        GenerateCoordinates();
-        GenerateTubeMesh();
     }
 
     void GenerateCoordinates()
@@ -143,8 +154,23 @@ public class FourierTrefoil3D : MonoBehaviour
         R1 = r1;
         R2 = r2;
         a1 = b1 = a2 = b2 = a3 = b3 = 0f;
+        currentRotation = 0f;
+        transform.localRotation = Quaternion.identity;
         GenerateCoordinates();
         GenerateTubeMesh();
+    }
+
+    public void SetRotationMode(bool enable)
+    {
+        rotationMode = enable;
+        if (enable)
+        {
+            a1 = 2f;
+            b1 = 0f;
+            a2 = b2 = a3 = b3 = 0f;
+            GenerateCoordinates();
+            GenerateTubeMesh();
+        }
     }
 
     public float GetAdjustmentValue()

@@ -12,6 +12,8 @@ public class DepthAdjustmentExperiment : MonoBehaviour
     public TrefoilGenerator stimulusTrefoil;
     public FourierTrefoil3D adjustableModel;
     public TextMeshProUGUI instructionText;
+    public TextMeshProUGUI leftEyeText;
+    public TextMeshProUGUI rightEyeText;
     public ConfidenceSlider confidenceSlider;
 
     [Header("Experiment Settings")]
@@ -34,6 +36,9 @@ public class DepthAdjustmentExperiment : MonoBehaviour
     private enum ExperimentState
     {
         Welcome,
+        CalibrationStage1,
+        CalibrationStage2,
+        CalibrationStage3,
         PracticeIntro,
         Practice,
         MainIntro,
@@ -65,6 +70,18 @@ public class DepthAdjustmentExperiment : MonoBehaviour
         if (adjustableModel != null)
         {
             adjustableModel.SetVisibility(false);
+        }
+
+        if (leftEyeText != null)
+        {
+            leftEyeText.text = "";
+            leftEyeText.gameObject.SetActive(false);
+        }
+
+        if (rightEyeText != null)
+        {
+            rightEyeText.text = "";
+            rightEyeText.gameObject.SetActive(false);
         }
 
         ShowInstruction("Welcome to the Experiment!\n\nPress 'A' to begin.");
@@ -121,30 +138,86 @@ public class DepthAdjustmentExperiment : MonoBehaviour
 
     IEnumerator RunExperiment()
     {
-        yield return StartCoroutine(WelcomePhase());
+        yield return StartCoroutine(CalibrationPhase());
         yield return StartCoroutine(PracticePhase());
         yield return StartCoroutine(MainExperimentPhase());
         yield return StartCoroutine(EndPhase());
     }
 
-    IEnumerator WelcomePhase()
+    IEnumerator CalibrationPhase()
     {
-        currentState = ExperimentState.Welcome;
-        ShowInstruction("In this task, you will see a rotating black curve.\n" +
-                        "Adjust the white curve next to it to match the 3D shape you see.\n\n" +
-                        "Moving the joystick up or down changes the vertical depth, left or right changes the horizontal depth.\n\n" +
-                        "Press 'A' to continue.");
+        currentState = ExperimentState.CalibrationStage1;
+
+        if (stimulusTrefoil != null)
+        {
+            stimulusTrefoil.SetParameters(1.0f, 1.5f, 60f, 1);
+            stimulusTrefoil.SetVisibility(true);
+        }
+
+        ShowEyeSpecificInstruction("Stare at the rotating curve until you perceive something interesting.\n\n" +
+                                 "Press 'A' when ready to continue.", 0);
 
         yield return new WaitForSeconds(0.5f);
         yield return new WaitUntil(() => GetButtonDown());
         yield return new WaitForSeconds(0.3f);
+
+        if (stimulusTrefoil != null)
+        {
+            stimulusTrefoil.SetVisibility(false);
+        }
+
+        currentState = ExperimentState.CalibrationStage2;
+        ShowEyeSpecificInstruction("This is one possible 3D interpretation of the 2D stimulus you saw.\n\n" +
+                                 "Use the joystick left/right to rotate and explore.\n\n" +
+                                 "There may be more than one interpretation.\n\n" +
+                                 "Press 'A' when ready to continue.", 1);
+
+        if (adjustableModel != null)
+        {
+            adjustableModel.ResetParameters(1.0f, 1.5f, 0f);
+            adjustableModel.SetRotationMode(true);
+            adjustableModel.SetVisibility(true);
+        }
+
+        yield return new WaitForSeconds(0.5f);
+        yield return new WaitUntil(() => GetButtonDown());
+        yield return new WaitForSeconds(0.3f);
+
+        if (adjustableModel != null)
+        {
+            adjustableModel.SetVisibility(false);
+            adjustableModel.SetRotationMode(false);
+        }
+
+        currentState = ExperimentState.CalibrationStage3;
+        ShowEyeSpecificInstruction("Now look at the rotating curve again.\n\n" +
+                                 "Can you perceive a 3D shape?\n\n" +
+                                 "Press 'A' when ready to begin the study.", 0);
+
+        if (stimulusTrefoil != null)
+        {
+            stimulusTrefoil.SetVisibility(true);
+        }
+
+        yield return new WaitForSeconds(0.5f);
+        yield return new WaitUntil(() => GetButtonDown());
+        yield return new WaitForSeconds(0.3f);
+
+        if (stimulusTrefoil != null)
+        {
+            stimulusTrefoil.SetVisibility(false);
+        }
+
+        HideEyeSpecificInstructions();
     }
 
     IEnumerator PracticePhase()
     {
         currentState = ExperimentState.PracticeIntro;
-        ShowInstruction("You will now have 2 practice trials.\n\n" +
-                       "When ready, press 'A' to submit your adjustment.\n\n" +
+        ShowInstruction("In this task, you will see a rotating black curve.\n\n" +
+                       "Adjust the white curve by moving the joystick to match the 3D shape you perceive.\n\n" +
+                       "You will have 2 practice trials.\n\n" +
+                       "Press 'A' to submit your adjustment.\n\n" +
                        "Press 'A' to start practice.");
 
         yield return new WaitForSeconds(0.5f);
@@ -272,6 +345,49 @@ public class DepthAdjustmentExperiment : MonoBehaviour
         if (instructionText != null)
         {
             instructionText.text = text;
+        }
+    }
+
+    void ShowEyeSpecificInstruction(string text, int eye)
+    {
+        // Hide main instruction text during calibration
+        if (instructionText != null)
+        {
+            instructionText.text = "";
+        }
+
+        // Hide both eye-specific texts first
+        if (leftEyeText != null)
+        {
+            leftEyeText.gameObject.SetActive(false);
+        }
+        if (rightEyeText != null)
+        {
+            rightEyeText.gameObject.SetActive(false);
+        }
+
+        // Show the appropriate eye-specific text
+        if (eye == 0 && leftEyeText != null)
+        {
+            leftEyeText.text = text;
+            leftEyeText.gameObject.SetActive(true);
+        }
+        else if (eye == 1 && rightEyeText != null)
+        {
+            rightEyeText.text = text;
+            rightEyeText.gameObject.SetActive(true);
+        }
+    }
+
+    void HideEyeSpecificInstructions()
+    {
+        if (leftEyeText != null)
+        {
+            leftEyeText.gameObject.SetActive(false);
+        }
+        if (rightEyeText != null)
+        {
+            rightEyeText.gameObject.SetActive(false);
         }
     }
 
