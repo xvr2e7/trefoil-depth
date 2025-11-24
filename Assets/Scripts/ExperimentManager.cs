@@ -315,6 +315,7 @@ public class ExperimentManager : MonoBehaviour
         if (stimulusTrefoil != null)
         {
             stimulusTrefoil.SetParameters(trial.R1, trial.R2, trial.rotationSpeed, trial.direction);
+            stimulusTrefoil.ResumeRotation();
         }
 
         if (adjustableModel != null)
@@ -340,10 +341,12 @@ public class ExperimentManager : MonoBehaviour
         yield return new WaitUntil(() => GetButtonDown());
 
         float reactionTime = Time.time - trialStartTime;
-        float amplitude = adjustableModel != null ? adjustableModel.GetAdjustmentValue() : 0f;
+        float amplitude = adjustableModel != null ?
+                         adjustableModel.GetAdjustmentValue() : 0f;
 
         if (stimulusTrefoil != null)
         {
+            stimulusTrefoil.PauseRotation();
             stimulusTrefoil.SetVisibility(false);
         }
 
