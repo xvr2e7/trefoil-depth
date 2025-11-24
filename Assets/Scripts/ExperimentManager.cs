@@ -20,11 +20,9 @@ public class ExperimentManager : MonoBehaviour
     [Header("Experiment Settings")]
     public bool autoStart = false;
 
-    private List<DepthAdjustmentTrial> practiceTrials;
-    private List<DepthAdjustmentTrial> mainTrials;
-    private List<CurvatureTrial> curvatureTrials;
-    private List<TrialRecord> depthRecords = new List<TrialRecord>();
-    private List<CurvatureRecord> curvatureRecords = new List<CurvatureRecord>();
+    private List<DepthTrial> practiceTrials;
+    private List<UnifiedTrial> allTrials;
+    private List<UnifiedRecord> allRecords = new List<UnifiedRecord>();
 
     private int currentTrialIndex = 0;
     private bool isPractice = true;
@@ -45,8 +43,6 @@ public class ExperimentManager : MonoBehaviour
         Practice,
         MainIntro,
         Main,
-        CurvatureIntro,
-        Curvature,
         End
     }
 
@@ -64,8 +60,7 @@ public class ExperimentManager : MonoBehaviour
         InitializeInputDevices();
 
         practiceTrials = StudyTrialGenerator.GeneratePracticeTrials();
-        mainTrials = StudyTrialGenerator.GenerateMainTrials();
-        curvatureTrials = StudyTrialGenerator.GenerateCurvatureTrials();
+        allTrials = StudyTrialGenerator.GenerateAllTrials();
 
         if (stimulusTrefoil != null)
         {
@@ -157,7 +152,6 @@ public class ExperimentManager : MonoBehaviour
         yield return StartCoroutine(CalibrationPhase());
         yield return StartCoroutine(PracticePhase());
         yield return StartCoroutine(MainExperimentPhase());
-        yield return StartCoroutine(CurvaturePhase());
         yield return StartCoroutine(EndPhase());
     }
 
@@ -279,40 +273,21 @@ public class ExperimentManager : MonoBehaviour
         currentState = ExperimentState.Main;
         isPractice = false;
 
-        for (int i = 0; i < mainTrials.Count; i++)
+        for (int i = 0; i < allTrials.Count; i++)
         {
             currentTrialIndex = i;
-            yield return StartCoroutine(RunDepthTrial(mainTrials[i], false));
+            UnifiedTrial trial = allTrials[i];
 
-            if ((i + 1) % 10 == 0 && i + 1 < mainTrials.Count)
+            if (trial.taskType == UnifiedTrial.TaskType.Depth)
             {
-                ShowInstruction("Take a short break if needed.\n\n" +
-                               "Press 'A' to continue.");
-
-                yield return new WaitForSeconds(0.5f);
-                yield return new WaitUntil(() => GetButtonDown());
-                yield return new WaitForSeconds(0.5f);
+                yield return StartCoroutine(RunDepthTrial(trial.depthTrial, false));
             }
-        }
-    }
+            else
+            {
+                yield return StartCoroutine(RunCurvatureTrial(trial.curvatureTrial, i, false));
+            }
 
-    IEnumerator CurvaturePhase()
-    {
-        currentState = ExperimentState.CurvatureIntro;
-        ShowInstruction("Press 'A' to begin.");
-
-        yield return new WaitForSeconds(0.5f);
-        yield return new WaitUntil(() => GetButtonDown());
-        yield return new WaitForSeconds(0.5f);
-
-        currentState = ExperimentState.Curvature;
-
-        for (int i = 0; i < curvatureTrials.Count; i++)
-        {
-            currentTrialIndex = i;
-            yield return StartCoroutine(RunCurvatureTrial(curvatureTrials[i], i));
-
-            if ((i + 1) % 10 == 0 && i + 1 < curvatureTrials.Count)
+            if ((i + 1) % 10 == 0 && i + 1 < allTrials.Count)
             {
                 ShowInstruction("Take a short break if needed.\n\n" +
                                "Press 'A' to continue.");
@@ -333,7 +308,7 @@ public class ExperimentManager : MonoBehaviour
         yield return new WaitForSeconds(3f);
     }
 
-    IEnumerator RunDepthTrial(DepthAdjustmentTrial trial, bool practice)
+    IEnumerator RunDepthTrial(DepthTrial trial, bool practice)
     {
         ShowInstruction("");
 
@@ -379,7 +354,7 @@ public class ExperimentManager : MonoBehaviour
 
         if (!practice)
         {
-            depthRecords.Add(new TrialRecord(currentTrialIndex, trial, amplitude, reactionTime));
+            allRecords.Add(new UnifiedRecord(currentTrialIndex, trial, amplitude, reactionTime));
         }
 
         yield return new WaitForSeconds(1f);
@@ -478,7 +453,7 @@ public class ExperimentManager : MonoBehaviour
             float radius = curvatureSphere != null ? curvatureSphere.GetRadius() : 0f;
             float angle = stimulusTrefoil != null ? stimulusTrefoil.GetCurrentAngle() : 0f;
 
-            curvatureRecords.Add(new CurvatureRecord(trialNumber, trial, radius, angle, elapsed));
+            allRecords.Add(new UnifiedRecord(trialNumber, trial, radius, angle, elapsed));
 
             yield return new WaitForSeconds(0.01f);
             elapsed = Time.time - startTime;
@@ -536,33 +511,17 @@ public class ExperimentManager : MonoBehaviour
     void SaveData()
     {
         string timestamp = System.DateTime.Now.ToString("yyyyMMdd_HHmmss");
+        string filename = $"Trefoil_Experiment_{timestamp}.csv";
+        string path = Path.Combine(Application.persistentDataPath, filename);
 
-        string depthFilename = $"Trefoil_Depth_{timestamp}.csv";
-        string depthPath = Path.Combine(Application.persistentDataPath, depthFilename);
+        StringBuilder csv = new StringBuilder();
+        csv.AppendLine("TrialNumber,TaskType,R1,R2,RotationSpeed,Direction,AdjustedAmplitude,ReactionTime,ProbePhi,SphereRadius,RotationAngle,TimeInTrial,Timestamp");
 
-        StringBuilder depthCsv = new StringBuilder();
-        depthCsv.AppendLine("TrialNumber,R1,R2,RotationSpeed,Direction,AdjustedAmplitude,ReactionTime,Timestamp");
-
-        foreach (var record in depthRecords)
+        foreach (var record in allRecords)
         {
-            depthCsv.AppendLine($"{record.trialNumber},{record.R1},{record.R2},{record.rotationSpeed},{record.direction},{record.adjustedAmplitude},{record.reactionTime},{record.timestamp}");
+            csv.AppendLine($"{record.trialNumber},{record.taskType},{record.R1},{record.R2},{record.rotationSpeed},{record.direction},{record.adjustedAmplitude},{record.reactionTime},{record.probePhi},{record.sphereRadius},{record.rotationAngle},{record.timeInTrial},{record.timestamp}");
         }
 
-        File.WriteAllText(depthPath, depthCsv.ToString());
-        Debug.Log($"Depth data saved to: {depthPath}");
-
-        string curvatureFilename = $"Trefoil_Curvature_{timestamp}.csv";
-        string curvaturePath = Path.Combine(Application.persistentDataPath, curvatureFilename);
-
-        StringBuilder curvatureCsv = new StringBuilder();
-        curvatureCsv.AppendLine("TrialNumber,R1,R2,RotationSpeed,Direction,ProbePhi,SphereRadius,RotationAngle,TimeInTrial");
-
-        foreach (var record in curvatureRecords)
-        {
-            curvatureCsv.AppendLine($"{record.trialNumber},{record.R1},{record.R2},{record.rotationSpeed},{record.direction},{record.probePhi},{record.sphereRadius},{record.rotationAngle},{record.timestamp}");
-        }
-
-        File.WriteAllText(curvaturePath, curvatureCsv.ToString());
-        Debug.Log($"Curvature data saved to: {curvaturePath}");
+        File.WriteAllText(path, csv.ToString());
     }
 }

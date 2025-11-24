@@ -3,14 +3,14 @@ using System.Collections.Generic;
 using UnityEngine;
 
 [Serializable]
-public class DepthAdjustmentTrial
+public class DepthTrial
 {
     public float R1;
     public float R2;
     public float rotationSpeed;
     public int direction;
 
-    public DepthAdjustmentTrial(float r1, float r2, float speed, int dir)
+    public DepthTrial(float r1, float r2, float speed, int dir)
     {
         R1 = r1;
         R2 = r2;
@@ -39,7 +39,7 @@ public class CurvatureTrial
 }
 
 [Serializable]
-public class TrialRecord
+public class DepthRecord
 {
     public int trialNumber;
     public float R1;
@@ -50,7 +50,7 @@ public class TrialRecord
     public float reactionTime;
     public string timestamp;
 
-    public TrialRecord(int num, DepthAdjustmentTrial trial, float amp, float rt)
+    public DepthRecord(int num, DepthTrial trial, float amp, float rt)
     {
         trialNumber = num;
         R1 = trial.R1;
@@ -90,18 +90,94 @@ public class CurvatureRecord
     }
 }
 
+[Serializable]
+public class UnifiedTrial
+{
+    public enum TaskType { Depth, Curvature }
+
+    public TaskType taskType;
+    public DepthTrial depthTrial;
+    public CurvatureTrial curvatureTrial;
+
+    public UnifiedTrial(DepthTrial trial)
+    {
+        taskType = TaskType.Depth;
+        depthTrial = trial;
+        curvatureTrial = null;
+    }
+
+    public UnifiedTrial(CurvatureTrial trial)
+    {
+        taskType = TaskType.Curvature;
+        depthTrial = null;
+        curvatureTrial = trial;
+    }
+}
+
+[Serializable]
+public class UnifiedRecord
+{
+    public int trialNumber;
+    public string taskType;
+    public float R1;
+    public float R2;
+    public float rotationSpeed;
+    public int direction;
+    public float adjustedAmplitude;
+    public float reactionTime;
+    public float probePhi;
+    public float sphereRadius;
+    public float rotationAngle;
+    public float timeInTrial;
+    public string timestamp;
+
+    public UnifiedRecord(int num, DepthTrial trial, float amp, float rt)
+    {
+        trialNumber = num;
+        taskType = "Depth";
+        R1 = trial.R1;
+        R2 = trial.R2;
+        rotationSpeed = trial.rotationSpeed;
+        direction = trial.direction;
+        adjustedAmplitude = amp;
+        reactionTime = rt;
+        probePhi = float.NaN;
+        sphereRadius = float.NaN;
+        rotationAngle = float.NaN;
+        timeInTrial = float.NaN;
+        timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+    }
+
+    public UnifiedRecord(int num, CurvatureTrial trial, float radius, float angle, float time)
+    {
+        trialNumber = num;
+        taskType = "Curvature";
+        R1 = trial.R1;
+        R2 = trial.R2;
+        rotationSpeed = trial.rotationSpeed;
+        direction = trial.direction;
+        adjustedAmplitude = float.NaN;
+        reactionTime = float.NaN;
+        probePhi = trial.probePhi;
+        sphereRadius = radius;
+        rotationAngle = angle;
+        timeInTrial = time;
+        timestamp = time.ToString();
+    }
+}
+
 public class StudyTrialGenerator
 {
-    public static List<DepthAdjustmentTrial> GeneratePracticeTrials()
+    public static List<DepthTrial> GeneratePracticeTrials()
     {
-        List<DepthAdjustmentTrial> trials = new List<DepthAdjustmentTrial>();
-        trials.Add(new DepthAdjustmentTrial(1.0f, 1.5f, 60f, 1));
+        List<DepthTrial> trials = new List<DepthTrial>();
+        trials.Add(new DepthTrial(1.0f, 1.5f, 60f, 1));
         return trials;
     }
 
-    public static List<DepthAdjustmentTrial> GenerateMainTrials()
+    public static List<DepthTrial> GenerateDepthTrials()
     {
-        List<DepthAdjustmentTrial> trials = new List<DepthAdjustmentTrial>();
+        List<DepthTrial> trials = new List<DepthTrial>();
 
         float[] shapes = { 1.5f, 2.0f };
         int[] directions = { 1, -1 };
@@ -116,13 +192,12 @@ public class StudyTrialGenerator
                 {
                     for (int r = 0; r < repeats; r++)
                     {
-                        trials.Add(new DepthAdjustmentTrial(1.0f, r2, speed, dir));
+                        trials.Add(new DepthTrial(1.0f, r2, speed, dir));
                     }
                 }
             }
         }
 
-        Shuffle(trials);
         return trials;
     }
 
@@ -133,7 +208,6 @@ public class StudyTrialGenerator
         float[] shapes = { 1.5f, 2.0f };
         int[] directions = { 1, -1 };
         float[] speeds = { 90f, 180f };
-        int repeats = 3;
 
         float[] probeLocations = new float[8];
         for (int i = 0; i < 8; i++)
@@ -141,30 +215,54 @@ public class StudyTrialGenerator
             probeLocations[i] = i * 2f * Mathf.PI / 8f;
         }
 
+        List<(float r2, int dir, float speed)> conditions = new List<(float, int, float)>();
         foreach (float r2 in shapes)
         {
             foreach (int dir in directions)
             {
                 foreach (float speed in speeds)
                 {
-                    foreach (float phi in probeLocations)
-                    {
-                        for (int r = 0; r < repeats; r++)
-                        {
-                            trials.Add(new CurvatureTrial(1.0f, r2, speed, dir, phi));
-                        }
-                    }
+                    conditions.Add((r2, dir, speed));
                 }
             }
         }
 
-        Shuffle(trials);
+        for (int i = 0; i < probeLocations.Length; i++)
+        {
+            for (int repeat = 0; repeat < 3; repeat++)
+            {
+                var condition = conditions[(i * 3 + repeat) % conditions.Count];
+                trials.Add(new CurvatureTrial(1.0f, condition.r2, condition.speed, condition.dir, probeLocations[i]));
+            }
+        }
+
         return trials;
+    }
+
+    public static List<UnifiedTrial> GenerateAllTrials()
+    {
+        List<UnifiedTrial> allTrials = new List<UnifiedTrial>();
+
+        List<DepthTrial> depthTrials = GenerateDepthTrials();
+        List<CurvatureTrial> curvatureTrials = GenerateCurvatureTrials();
+
+        foreach (var trial in depthTrials)
+        {
+            allTrials.Add(new UnifiedTrial(trial));
+        }
+
+        foreach (var trial in curvatureTrials)
+        {
+            allTrials.Add(new UnifiedTrial(trial));
+        }
+
+        Shuffle(allTrials);
+        return allTrials;
     }
 
     private static void Shuffle<T>(List<T> list)
     {
-        System.Random rng = new System.Random();
+        System.Random rng = new System.Random(System.Guid.NewGuid().GetHashCode());
         int n = list.Count;
         while (n > 1)
         {
