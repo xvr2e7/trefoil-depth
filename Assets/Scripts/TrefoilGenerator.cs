@@ -19,6 +19,7 @@ public class TrefoilGenerator : MonoBehaviour
     private Vector3[] pathPoints;
     private MeshRenderer meshRenderer;
     private float currentAngle = 0f;
+    private bool isRotating = true;
 
     void Start()
     {
@@ -36,8 +37,11 @@ public class TrefoilGenerator : MonoBehaviour
 
     void Update()
     {
-        currentAngle += rotationSpeed * Time.deltaTime * direction;
-        transform.localRotation = Quaternion.Euler(0, 0, currentAngle);
+        if (isRotating)
+        {
+            currentAngle += rotationSpeed * Time.deltaTime * direction;
+            transform.localRotation = Quaternion.Euler(0, 0, currentAngle);
+        }
     }
 
     void GeneratePath()
@@ -112,5 +116,37 @@ public class TrefoilGenerator : MonoBehaviour
     public void SetVisibility(bool visible)
     {
         meshRenderer.enabled = visible;
+    }
+
+    public void PauseRotation()
+    {
+        isRotating = false;
+    }
+
+    public void ResumeRotation()
+    {
+        isRotating = true;
+    }
+
+    public Vector3 GetPointAt(float phi)
+    {
+        float x = R1 * Mathf.Cos(phi) + R2 * Mathf.Cos(2 * phi);
+        float y = R1 * Mathf.Sin(phi) - R2 * Mathf.Sin(2 * phi);
+        return new Vector3(x, y, 0);
+    }
+
+    public Vector3 GetNormalAt(float phi)
+    {
+        float dx = -R1 * Mathf.Sin(phi) - 2 * R2 * Mathf.Sin(2 * phi);
+        float dy = R1 * Mathf.Cos(phi) - 2 * R2 * Mathf.Cos(2 * phi);
+
+        Vector3 tangent = new Vector3(dx, dy, 0).normalized;
+        Vector3 normal = new Vector3(-tangent.y, tangent.x, 0);
+        return normal;
+    }
+
+    public float GetCurrentAngle()
+    {
+        return currentAngle;
     }
 }
