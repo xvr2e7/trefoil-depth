@@ -11,6 +11,8 @@ public class TrefoilGenerator : MonoBehaviour
 
     [Header("Rotation")]
     public float rotationSpeed = 90f;
+
+    // Rotation direction: 1=CCW, -1=CW
     public int direction = 1;
 
     private Mesh mesh;
@@ -44,12 +46,14 @@ public class TrefoilGenerator : MonoBehaviour
         for (int i = 0; i < segments; i++)
         {
             float phi = i * 2 * Mathf.PI / segments;
+
+            // Two-harmonic Fourier base
             float x = R1 * Mathf.Cos(phi) + R2 * Mathf.Cos(2 * phi);
             float y = R1 * Mathf.Sin(phi) - R2 * Mathf.Sin(2 * phi);
+
             pathPoints[i] = new Vector3(x, y, 0);
         }
     }
-
     void GenerateRibbonMesh()
     {
         Vector3[] vertices = new Vector3[segments * 2];
@@ -60,6 +64,8 @@ public class TrefoilGenerator : MonoBehaviour
             Vector3 point = pathPoints[i];
             Vector3 nextPoint = pathPoints[(i + 1) % segments];
             Vector3 tangent = (nextPoint - point).normalized;
+
+            // Perpendicular vector in xy-plane (z stays 0)
             Vector3 perpendicular = new Vector3(-tangent.y, tangent.x, 0) * width * 0.5f;
 
             vertices[i * 2] = point + perpendicular;

@@ -1,3 +1,5 @@
+// Archived script for reference
+
 using UnityEngine;
 using UnityEngine.XR;
 

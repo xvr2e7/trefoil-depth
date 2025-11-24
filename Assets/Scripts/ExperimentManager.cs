@@ -6,7 +6,7 @@ using UnityEngine;
 using UnityEngine.XR;
 using TMPro;
 
-public class DepthAdjustmentExperiment : MonoBehaviour
+public class ExperimentManager : MonoBehaviour
 {
     [Header("Scene References")]
     public TrefoilGenerator stimulusTrefoil;
@@ -14,10 +14,8 @@ public class DepthAdjustmentExperiment : MonoBehaviour
     public TextMeshProUGUI instructionText;
     public TextMeshProUGUI leftEyeText;
     public TextMeshProUGUI rightEyeText;
-    // public ConfidenceSlider confidenceSlider;
 
     [Header("Experiment Settings")]
-    public string participantID = "P001";
     public bool autoStart = false;
 
     private List<DepthAdjustmentTrial> practiceTrials;
@@ -59,8 +57,8 @@ public class DepthAdjustmentExperiment : MonoBehaviour
 
         InitializeInputDevices();
 
-        practiceTrials = DepthAdjustmentTrialGenerator.GeneratePracticeTrials();
-        mainTrials = DepthAdjustmentTrialGenerator.GenerateMainTrials();
+        practiceTrials = StudyTrialGenerator.GeneratePracticeTrials();
+        mainTrials = StudyTrialGenerator.GenerateMainTrials();
 
         if (stimulusTrefoil != null)
         {
@@ -167,10 +165,10 @@ public class DepthAdjustmentExperiment : MonoBehaviour
         }
 
         currentState = ExperimentState.CalibrationStage2;
-        ShowEyeSpecificInstruction("This is one possible 3D interpretation of the 2D stimulus you saw.\n\n" +
-                                 "Use the joystick left/right to rotate and explore.\n\n" +
-                                 "There may be more than one interpretation.\n\n" +
-                                 "Press 'A' when ready to continue.", 1);
+        ShowEyeSpecificInstruction("This is one possible 3D interpretation of the 2D stimulus you saw.\n" +
+                                   "It is the general shape that you should be able to perceive.\n\n" +
+                                   "Use the joystick left/right to rotate and explore.\n\n" +
+                                   "Press 'A' when you are ready to continue.", 1);
 
         if (adjustableModel != null)
         {
@@ -215,9 +213,8 @@ public class DepthAdjustmentExperiment : MonoBehaviour
     {
         currentState = ExperimentState.PracticeIntro;
         ShowInstruction("In this task, you will see a rotating black curve.\n\n" +
-                        "Adjust the white curve by moving the joystick to match the 3D shape you perceive.\n\n" +
-                        "Move up/down will change the vertical depth of the curve.\n" +
-                        "Move left/right will change the horizontal depth.\n\n" +
+                        "Adjust the white curve by moving the joystick UP/DOWN to match the 3D shape you perceive.\n\n" +
+                        "Moving UP will increase depth, DOWN will decrease depth.\n\n" +
                         "You will have 2 practice trials.\n\n" +
                         "Press 'A' to submit your adjustment.\n" +
                         "Press 'A' to start practice.");
@@ -319,21 +316,6 @@ public class DepthAdjustmentExperiment : MonoBehaviour
             adjustableModel.SetVisibility(false);
         }
 
-        // if (confidenceSlider != null)
-        // {
-        //     confidenceSlider.Show();
-        // }
-
-        // yield return new WaitForSeconds(0.3f);
-        // yield return new WaitUntil(() => GetButtonDown());
-
-        // float confidence = confidenceSlider != null ? confidenceSlider.GetConfidence() : 0f;
-
-        // if (confidenceSlider != null)
-        // {
-        //     confidenceSlider.Hide();
-        // }
-
         if (!practice)
         {
             records.Add(new TrialRecord(currentTrialIndex, trial, amplitude, reactionTime));
@@ -352,13 +334,11 @@ public class DepthAdjustmentExperiment : MonoBehaviour
 
     void ShowEyeSpecificInstruction(string text, int eye)
     {
-        // Hide main instruction text during calibration
         if (instructionText != null)
         {
             instructionText.text = "";
         }
 
-        // Hide both eye-specific texts first
         if (leftEyeText != null)
         {
             leftEyeText.gameObject.SetActive(false);
@@ -368,7 +348,6 @@ public class DepthAdjustmentExperiment : MonoBehaviour
             rightEyeText.gameObject.SetActive(false);
         }
 
-        // Show the appropriate eye-specific text
         if (eye == 0 && leftEyeText != null)
         {
             leftEyeText.text = text;
@@ -395,7 +374,7 @@ public class DepthAdjustmentExperiment : MonoBehaviour
 
     void SaveData()
     {
-        string filename = $"DepthAdjustment_{participantID}_{System.DateTime.Now:yyyyMMdd_HHmmss}.csv";
+        string filename = $"Trefoil_{System.DateTime.Now:yyyyMMdd_HHmmss}.csv";
         string path = Path.Combine(Application.persistentDataPath, filename);
 
         StringBuilder csv = new StringBuilder();
@@ -407,5 +386,6 @@ public class DepthAdjustmentExperiment : MonoBehaviour
         }
 
         File.WriteAllText(path, csv.ToString());
+        Debug.Log($"Data saved to: {path}");
     }
 }

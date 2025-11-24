@@ -167,11 +167,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   stimulusTrefoil: {fileID: 1544350278}
-  adjustableModel: {fileID: 752468350}
+  adjustableModel: {fileID: 752468353}
   instructionText: {fileID: 2133389898}
   leftEyeText: {fileID: 1799357935}
   rightEyeText: {fileID: 1240839420}
-  participantID: P001
   autoStart: 0
 --- !u!1 &600133653
 GameObject:
@@ -259,7 +258,7 @@ GameObject:
   - component: {fileID: 752468349}
   - component: {fileID: 752468352}
   - component: {fileID: 752468351}
-  - component: {fileID: 752468350}
+  - component: {fileID: 752468353}
   m_Layer: 0
   m_Name: AdjustableModel
   m_TagString: Untagged
@@ -282,32 +281,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &752468350
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 752468348}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 80793f38930da47618f4587945c9161b, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  R1: 1
-  R2: 1.5
-  segments: 1000
-  tubeRadius: 0.05
-  a1: 0
-  b1: 0
-  a2: 0
-  b2: 0
-  a3: 0
-  b3: 0
-  coefficientSpeed: 1
-  minCoefficient: -3
-  maxCoefficient: 3
-  rotationSpeed: 30
 --- !u!23 &752468351
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -358,6 +331,35 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 752468348}
   m_Mesh: {fileID: 0}
+--- !u!114 &752468353
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 752468348}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80793f38930da47618f4587945c9161b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  R1: 1
+  R2: 1.5
+  segments: 300
+  pointSize: 0.08
+  a1: 1
+  b1: 0
+  a2: 0
+  b2: 0
+  a3: 0
+  b3: 0
+  amplitude: 0
+  amplitudeSpeed: 1
+  minAmplitude: -5
+  maxAmplitude: 5
+  rotationMode: 0
+  rotationSpeed: 30
+  adjustmentEnabled: 1
 --- !u!1 &794011538
 GameObject:
   m_ObjectHideFlags: 0
@@ -1944,7 +1946,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: 
+  m_text: demo
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}

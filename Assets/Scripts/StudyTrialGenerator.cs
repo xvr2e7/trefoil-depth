@@ -28,7 +28,6 @@ public class TrialRecord
     public float rotationSpeed;
     public int direction;
     public float adjustedAmplitude;
-    // public float confidence;
     public float reactionTime;
     public string timestamp;
 
@@ -40,13 +39,12 @@ public class TrialRecord
         rotationSpeed = trial.rotationSpeed;
         direction = trial.direction;
         adjustedAmplitude = amp;
-        // confidence = conf;
         reactionTime = rt;
         timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
     }
 }
 
-public class DepthAdjustmentTrialGenerator
+public class StudyTrialGenerator
 {
     public static List<DepthAdjustmentTrial> GeneratePracticeTrials()
     {
