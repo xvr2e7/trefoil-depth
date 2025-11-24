@@ -19,6 +19,7 @@ public class ExperimentManager : MonoBehaviour
 
     [Header("Experiment Settings")]
     public bool autoStart = false;
+    public float curvCycle = 5f;
 
     private List<DepthTrial> practiceTrials;
     private List<UnifiedTrial> allTrials;
@@ -287,7 +288,7 @@ public class ExperimentManager : MonoBehaviour
                 yield return StartCoroutine(RunCurvatureTrial(trial.curvatureTrial, i, false));
             }
 
-            if ((i + 1) % 10 == 0 && i + 1 < allTrials.Count)
+            if ((i + 1) % 16 == 0 && i + 1 < allTrials.Count)
             {
                 ShowInstruction("Take a short break if needed.\n\n" +
                                "Press 'A' to continue.");
@@ -376,14 +377,14 @@ public class ExperimentManager : MonoBehaviour
 
         if (curvatureSphere != null)
         {
-            curvatureSphere.ResetRadius(0.5f);
+            curvatureSphere.ResetRadius(0.3f);
         }
 
         if (curvatureMarker != null)
         {
             Vector3 probePoint = stimulusTrefoil.GetPointAt(trial.probePhi);
-            Vector3 probeNormal = stimulusTrefoil.GetNormalAt(trial.probePhi);
-            curvatureMarker.SetPosition(probePoint + probeNormal * 0.15f);
+            Vector3 radialDirection = probePoint.normalized;
+            curvatureMarker.SetPosition(probePoint + radialDirection * 0.5f);
         }
 
         yield return new WaitForSeconds(0.5f);
@@ -414,7 +415,7 @@ public class ExperimentManager : MonoBehaviour
         }
 
         float cycleDuration = 360f / trial.rotationSpeed;
-        float numCycles = practice ? 3f : 10f;
+        float numCycles = practice ? 3f : curvCycle;
         float totalDuration = cycleDuration * numCycles;
 
         if (!practice)

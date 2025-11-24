@@ -4,7 +4,7 @@ using UnityEngine;
 public class CurvatureMarker : MonoBehaviour
 {
     private MeshRenderer meshRenderer;
-    [SerializeField] private float markerSize = 0.08f;
+    [SerializeField] private float markerSize = 0.05f;
 
     public void Initialize(Transform trefoilParent)
     {
@@ -26,7 +26,6 @@ public class CurvatureMarker : MonoBehaviour
         GetComponent<MeshFilter>().mesh = sphereMesh;
         Destroy(sphere);
 
-        // Since marker is child of trefoil (scaled 0.25), compensate for parent scale
         float parentScale = transform.parent != null ? transform.parent.localScale.x : 1f;
         transform.localScale = Vector3.one * (markerSize / parentScale);
     }

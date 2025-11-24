@@ -5,10 +5,10 @@ using UnityEngine.XR;
 public class CurvatureSphere : MonoBehaviour
 {
     [Header("Sphere Parameters")]
-    public float radius = 0.5f;
-    public float radiusSpeed = 1f;
+    public float radius = 0.3f;
+    public float radiusSpeed = 0.1f;
     public float minRadius = 0.1f;
-    public float maxRadius = 5f;
+    public float maxRadius = 1f;
 
     private MeshRenderer meshRenderer;
     private InputDevice rightHandDevice;
@@ -57,7 +57,6 @@ public class CurvatureSphere : MonoBehaviour
 
     void UpdateScale()
     {
-        // Unity sphere primitive has diameter of 1, so scale by 2*radius
         transform.localScale = Vector3.one * radius * 2f;
     }
 
