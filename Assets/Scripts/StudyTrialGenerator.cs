@@ -22,71 +22,13 @@ public class DepthTrial
 [Serializable]
 public class CurvatureTrial
 {
-    public float R1;
-    public float R2;
-    public float rotationSpeed;
-    public int direction;
-    public float probePhi;
+    public bool isMinimalCurvature;
+    public float startingAngle;
 
-    public CurvatureTrial(float r1, float r2, float speed, int dir, float phi)
+    public CurvatureTrial(bool isMinimal, float startAngle)
     {
-        R1 = r1;
-        R2 = r2;
-        rotationSpeed = speed;
-        direction = dir;
-        probePhi = phi;
-    }
-}
-
-[Serializable]
-public class DepthRecord
-{
-    public int trialNumber;
-    public float R1;
-    public float R2;
-    public float rotationSpeed;
-    public int direction;
-    public float adjustedAmplitude;
-    public float reactionTime;
-    public string timestamp;
-
-    public DepthRecord(int num, DepthTrial trial, float amp, float rt)
-    {
-        trialNumber = num;
-        R1 = trial.R1;
-        R2 = trial.R2;
-        rotationSpeed = trial.rotationSpeed;
-        direction = trial.direction;
-        adjustedAmplitude = amp;
-        reactionTime = rt;
-        timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
-    }
-}
-
-[Serializable]
-public class CurvatureRecord
-{
-    public int trialNumber;
-    public float R1;
-    public float R2;
-    public float rotationSpeed;
-    public int direction;
-    public float probePhi;
-    public float sphereRadius;
-    public float rotationAngle;
-    public float timestamp;
-
-    public CurvatureRecord(int num, CurvatureTrial trial, float radius, float angle, float time)
-    {
-        trialNumber = num;
-        R1 = trial.R1;
-        R2 = trial.R2;
-        rotationSpeed = trial.rotationSpeed;
-        direction = trial.direction;
-        probePhi = trial.probePhi;
-        sphereRadius = radius;
-        rotationAngle = angle;
-        timestamp = time;
+        isMinimalCurvature = isMinimal;
+        startingAngle = startAngle;
     }
 }
 
@@ -125,10 +67,9 @@ public class UnifiedRecord
     public int direction;
     public float adjustedAmplitude;
     public float reactionTime;
-    public float probePhi;
-    public float sphereRadius;
-    public float rotationAngle;
-    public float timeInTrial;
+    public bool isMinimalCurvature;
+    public float startingAngle;
+    public float capturedAngle;
     public string timestamp;
 
     public UnifiedRecord(int num, DepthTrial trial, float amp, float rt)
@@ -141,28 +82,26 @@ public class UnifiedRecord
         direction = trial.direction;
         adjustedAmplitude = amp;
         reactionTime = rt;
-        probePhi = float.NaN;
-        sphereRadius = float.NaN;
-        rotationAngle = float.NaN;
-        timeInTrial = float.NaN;
+        isMinimalCurvature = false;
+        startingAngle = float.NaN;
+        capturedAngle = float.NaN;
         timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
     }
 
-    public UnifiedRecord(int num, CurvatureTrial trial, float radius, float angle, float time)
+    public UnifiedRecord(int num, CurvatureTrial trial, float captAngle, float amp, float rt)
     {
         trialNumber = num;
         taskType = "Curvature";
-        R1 = trial.R1;
-        R2 = trial.R2;
-        rotationSpeed = trial.rotationSpeed;
-        direction = trial.direction;
-        adjustedAmplitude = float.NaN;
-        reactionTime = float.NaN;
-        probePhi = trial.probePhi;
-        sphereRadius = radius;
-        rotationAngle = angle;
-        timeInTrial = time;
-        timestamp = time.ToString();
+        R1 = 1.0f;
+        R2 = 2.0f;
+        rotationSpeed = 90f;
+        direction = 1;
+        adjustedAmplitude = amp;
+        reactionTime = rt;
+        isMinimalCurvature = trial.isMinimalCurvature;
+        startingAngle = trial.startingAngle;
+        capturedAngle = captAngle;
+        timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
     }
 }
 
@@ -204,38 +143,21 @@ public class StudyTrialGenerator
     public static List<CurvatureTrial> GenerateCurvatureTrials()
     {
         List<CurvatureTrial> trials = new List<CurvatureTrial>();
+        System.Random rng = new System.Random();
 
-        float[] shapes = { 1.5f, 2.0f };
-        int[] directions = { 1, -1 };
-        float[] speeds = { 90f, 180f };
-
-        float[] probeLocations = new float[8];
-        for (int i = 0; i < 8; i++)
+        for (int i = 0; i < 10; i++)
         {
-            probeLocations[i] = i * 2f * Mathf.PI / 8f;
+            float startAngle = (float)(rng.NextDouble() * 360.0);
+            trials.Add(new CurvatureTrial(true, startAngle));
         }
 
-        List<(float r2, int dir, float speed)> conditions = new List<(float, int, float)>();
-        foreach (float r2 in shapes)
+        for (int i = 0; i < 10; i++)
         {
-            foreach (int dir in directions)
-            {
-                foreach (float speed in speeds)
-                {
-                    conditions.Add((r2, dir, speed));
-                }
-            }
+            float startAngle = (float)(rng.NextDouble() * 360.0);
+            trials.Add(new CurvatureTrial(false, startAngle));
         }
 
-        for (int i = 0; i < probeLocations.Length; i++)
-        {
-            for (int repeat = 0; repeat < 3; repeat++)
-            {
-                var condition = conditions[(i * 3 + repeat) % conditions.Count];
-                trials.Add(new CurvatureTrial(1.0f, condition.r2, condition.speed, condition.dir, probeLocations[i]));
-            }
-        }
-
+        Shuffle(trials);
         return trials;
     }
 

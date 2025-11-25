@@ -25,7 +25,7 @@ public class TrefoilGenerator : MonoBehaviour
     {
         meshRenderer = GetComponent<MeshRenderer>();
         Material mat = new Material(Shader.Find("Custom/RightEyeOnly"));
-        mat.color = Color.black;
+        mat.color = Color.white;
         meshRenderer.material = mat;
 
         mesh = new Mesh();
@@ -51,13 +51,13 @@ public class TrefoilGenerator : MonoBehaviour
         {
             float phi = i * 2 * Mathf.PI / segments;
 
-            // Two-harmonic Fourier base
             float x = R1 * Mathf.Cos(phi) + R2 * Mathf.Cos(2 * phi);
             float y = R1 * Mathf.Sin(phi) - R2 * Mathf.Sin(2 * phi);
 
             pathPoints[i] = new Vector3(x, y, 0);
         }
     }
+
     void GenerateRibbonMesh()
     {
         Vector3[] vertices = new Vector3[segments * 2];
@@ -69,7 +69,6 @@ public class TrefoilGenerator : MonoBehaviour
             Vector3 nextPoint = pathPoints[(i + 1) % segments];
             Vector3 tangent = (nextPoint - point).normalized;
 
-            // Perpendicular vector in xy-plane (z stays 0)
             Vector3 perpendicular = new Vector3(-tangent.y, tangent.x, 0) * width * 0.5f;
 
             vertices[i * 2] = point + perpendicular;
@@ -100,6 +99,12 @@ public class TrefoilGenerator : MonoBehaviour
     {
         currentAngle = 0f;
         transform.localRotation = Quaternion.identity;
+    }
+
+    public void SetStartingAngle(float angle)
+    {
+        currentAngle = angle;
+        transform.localRotation = Quaternion.Euler(0, 0, currentAngle);
     }
 
     public void SetParameters(float r1, float r2, float speed, int dir)
@@ -148,5 +153,10 @@ public class TrefoilGenerator : MonoBehaviour
     public float GetCurrentAngle()
     {
         return currentAngle;
+    }
+
+    public void SetColor(Color color)
+    {
+        meshRenderer.material.color = color;
     }
 }

@@ -8,18 +8,25 @@ using TMPro;
 
 public class ExperimentManager : MonoBehaviour
 {
-    [Header("Scene References")]
+    [Header("Depth Task")]
     public TrefoilGenerator stimulusTrefoil;
     public FourierTrefoil3D adjustableModel;
-    public CurvatureSphere curvatureSphere;
+
+    [Header("Curvature Task")]
+    public TrefoilGenerator curvatureTrefoil;
+    public CurvatureSegment curvatureSegment;
     public CurvatureMarker curvatureMarker;
+
+    [Header("Curvature Task Settings")]
+    public float markerNormalOffset = 0.3f;
+
+    [Header("UI")]
     public TextMeshProUGUI instructionText;
     public TextMeshProUGUI leftEyeText;
     public TextMeshProUGUI rightEyeText;
 
     [Header("Experiment Settings")]
     public bool autoStart = false;
-    public float curvCycle = 5f;
 
     private List<DepthTrial> practiceTrials;
     private List<UnifiedTrial> allTrials;
@@ -68,20 +75,25 @@ public class ExperimentManager : MonoBehaviour
             stimulusTrefoil.SetVisibility(false);
         }
 
-        if (curvatureMarker != null && stimulusTrefoil != null)
-        {
-            curvatureMarker.Initialize(stimulusTrefoil.transform);
-            curvatureMarker.SetVisibility(false);
-        }
-
         if (adjustableModel != null)
         {
             adjustableModel.SetVisibility(false);
         }
 
-        if (curvatureSphere != null)
+        if (curvatureTrefoil != null)
         {
-            curvatureSphere.SetVisibility(false);
+            curvatureTrefoil.SetVisibility(false);
+        }
+
+        if (curvatureSegment != null)
+        {
+            curvatureSegment.SetVisibility(false);
+        }
+
+        if (curvatureMarker != null && curvatureTrefoil != null)
+        {
+            curvatureMarker.Initialize(curvatureTrefoil.transform);
+            curvatureMarker.SetVisibility(false);
         }
 
         if (leftEyeText != null)
@@ -228,8 +240,8 @@ public class ExperimentManager : MonoBehaviour
         currentState = ExperimentState.PracticeIntro;
         ShowInstruction("PRACTICE\n\n" +
                         "TASK 1: Depth Adjustment\n\n" +
-                        "You will see a rotating black curve.\n\n" +
-                        "Adjust the white curve by moving the joystick UP/DOWN to match the 3D shape you perceive.\n\n" +
+                        "You will see a rotating white curve.\n\n" +
+                        "Adjust the black curve by moving the joystick UP/DOWN to match the 3D shape you perceive.\n\n" +
                         "Moving UP will increase depth, DOWN will decrease depth.\n\n" +
                         "Press 'A' to submit your adjustment.\n" +
                         "Press 'A' to start practice.");
@@ -246,19 +258,19 @@ public class ExperimentManager : MonoBehaviour
 
         ShowInstruction("PRACTICE\n\n" +
                         "TASK 2: Curvature Judgment\n\n" +
-                        "You will see a red dot marking a location on the curve.\n\n" +
-                        "First, adjust the white sphere to match the curvature at that location.\n\n" +
-                        "When you're ready, press 'A'. The curve will start to rotate.\n" +
-                        "Continuously adjust the sphere to match that curvature you perceive.\n\n" +
-                        "Joystick UP/DOWN to increase/decrease sphere size.\n\n" +
+                        "You will see a rotating white curve and a red marker near the tip of one lobe.\n\n" +
+                        "Stick to ONE 3D structure interpretation of the 2D curve as you watch the rotation.\n" +
+                        "Press 'A' when you see the MINIMAL curvature at the marked tip.\n\n" +
+                        "Then adjust the black segment's depth to match the curvature you perceived.\n\n" +
+                        "Press 'A' again to submit.\n\n" +
                         "Press 'A' to start practice.");
 
         yield return new WaitForSeconds(0.5f);
         yield return new WaitUntil(() => GetButtonDown());
         yield return new WaitForSeconds(0.5f);
 
-        CurvatureTrial practiceCurvatureTrial = new CurvatureTrial(1.0f, 1.5f, 60f, 1, 0f);
-        yield return StartCoroutine(RunCurvatureTrial(practiceCurvatureTrial, -1, true));
+        CurvatureTrial practiceCurvatureTrial = new CurvatureTrial(true, 0f);
+        yield return StartCoroutine(RunCurvatureTrial(practiceCurvatureTrial, true));
     }
 
     IEnumerator MainExperimentPhase()
@@ -285,7 +297,7 @@ public class ExperimentManager : MonoBehaviour
             }
             else
             {
-                yield return StartCoroutine(RunCurvatureTrial(trial.curvatureTrial, i, false));
+                yield return StartCoroutine(RunCurvatureTrial(trial.curvatureTrial, false));
             }
 
             if ((i + 1) % 16 == 0 && i + 1 < allTrials.Count)
@@ -342,8 +354,7 @@ public class ExperimentManager : MonoBehaviour
         yield return new WaitUntil(() => GetButtonDown());
 
         float reactionTime = Time.time - trialStartTime;
-        float amplitude = adjustableModel != null ?
-                         adjustableModel.GetAdjustmentValue() : 0f;
+        float amplitude = adjustableModel != null ? adjustableModel.GetAdjustmentValue() : 0f;
 
         if (stimulusTrefoil != null)
         {
@@ -364,79 +375,45 @@ public class ExperimentManager : MonoBehaviour
         yield return new WaitForSeconds(1f);
     }
 
-    IEnumerator RunCurvatureTrial(CurvatureTrial trial, int trialNumber, bool practice = false)
+    IEnumerator RunCurvatureTrial(CurvatureTrial trial, bool practice)
     {
-        ShowInstruction("");
+        string curvatureType = trial.isMinimalCurvature ? "MINIMAL" : "MAXIMAL";
+        ShowEyeSpecificInstruction($"Press 'A' when you see {curvatureType} curvature at the lobe tip.", 1);
 
-        if (stimulusTrefoil != null)
+        if (curvatureTrefoil != null)
         {
-            stimulusTrefoil.SetParameters(trial.R1, trial.R2, trial.rotationSpeed, trial.direction);
-            stimulusTrefoil.ResetRotation();
-            stimulusTrefoil.PauseRotation();
+            curvatureTrefoil.SetParameters(1.0f, 2.0f, 90f, 1);
+            curvatureTrefoil.SetStartingAngle(trial.startingAngle);
+            curvatureTrefoil.ResumeRotation();
+            curvatureTrefoil.SetVisibility(true);
         }
 
-        if (curvatureSphere != null)
+        if (curvatureMarker != null && curvatureTrefoil != null)
         {
-            curvatureSphere.ResetRadius(0.3f);
-        }
-
-        if (curvatureMarker != null)
-        {
-            Vector3 probePoint = stimulusTrefoil.GetPointAt(trial.probePhi);
-            Vector3 radialDirection = probePoint.normalized;
-            curvatureMarker.SetPosition(probePoint + radialDirection * 0.5f);
-        }
-
-        yield return new WaitForSeconds(0.5f);
-
-        if (stimulusTrefoil != null)
-        {
-            stimulusTrefoil.SetVisibility(true);
-        }
-
-        if (curvatureMarker != null)
-        {
+            Vector3 tipPoint = curvatureTrefoil.GetPointAt(0f);
+            Vector3 normal = curvatureTrefoil.GetNormalAt(0f);
+            curvatureMarker.SetPosition(tipPoint + normal * markerNormalOffset);
             curvatureMarker.SetVisibility(true);
         }
 
-        if (curvatureSphere != null)
+        if (curvatureSegment != null)
         {
-            curvatureSphere.SetVisibility(true);
-            curvatureSphere.SetAdjustmentEnabled(true);
+            curvatureSegment.SetVisibility(false);
         }
 
         yield return new WaitForSeconds(0.5f);
+
+        trialStartTime = Time.time;
+
         yield return new WaitUntil(() => GetButtonDown());
-        yield return new WaitForSeconds(0.3f);
 
-        if (stimulusTrefoil != null)
-        {
-            stimulusTrefoil.ResumeRotation();
-        }
+        float capturedAngle = curvatureTrefoil != null ? curvatureTrefoil.GetCurrentAngle() : 0f;
+        float phase1Time = Time.time - trialStartTime;
 
-        float cycleDuration = 360f / trial.rotationSpeed;
-        float numCycles = practice ? 3f : curvCycle;
-        float totalDuration = cycleDuration * numCycles;
-
-        if (!practice)
+        if (curvatureTrefoil != null)
         {
-            yield return StartCoroutine(LogCurvatureData(trial, trialNumber, totalDuration));
-        }
-        else
-        {
-            yield return new WaitForSeconds(totalDuration);
-        }
-
-        if (stimulusTrefoil != null)
-        {
-            stimulusTrefoil.PauseRotation();
-            stimulusTrefoil.SetVisibility(false);
-        }
-
-        if (curvatureSphere != null)
-        {
-            curvatureSphere.SetAdjustmentEnabled(false);
-            curvatureSphere.SetVisibility(false);
+            curvatureTrefoil.PauseRotation();
+            curvatureTrefoil.SetColor(Color.white);
         }
 
         if (curvatureMarker != null)
@@ -444,24 +421,44 @@ public class ExperimentManager : MonoBehaviour
             curvatureMarker.SetVisibility(false);
         }
 
-        yield return new WaitForSeconds(1f);
-    }
-
-    IEnumerator LogCurvatureData(CurvatureTrial trial, int trialNumber, float duration)
-    {
-        float startTime = Time.time;
-        float elapsed = 0f;
-
-        while (elapsed < duration)
+        if (curvatureSegment != null)
         {
-            float radius = curvatureSphere != null ? curvatureSphere.GetRadius() : 0f;
-            float angle = stimulusTrefoil != null ? stimulusTrefoil.GetCurrentAngle() : 0f;
-
-            allRecords.Add(new UnifiedRecord(trialNumber, trial, radius, angle, elapsed));
-
-            yield return new WaitForSeconds(0.01f);
-            elapsed = Time.time - startTime;
+            curvatureSegment.SetParameters(1.0f, 2.0f);
+            curvatureSegment.ResetAmplitude(0f);
+            curvatureSegment.SetColor(Color.black);
+            curvatureSegment.SetAdjustmentEnabled(true);
+            curvatureSegment.SetVisibility(true);
         }
+
+        yield return new WaitForSeconds(0.3f);
+
+        float phase2StartTime = Time.time;
+
+        yield return new WaitUntil(() => GetButtonDown());
+
+        float phase2Time = Time.time - phase2StartTime;
+        float totalTime = phase1Time + phase2Time;
+        float amplitude = curvatureSegment != null ? curvatureSegment.GetAmplitude() : 0f;
+
+        if (curvatureTrefoil != null)
+        {
+            curvatureTrefoil.SetVisibility(false);
+        }
+
+        if (curvatureSegment != null)
+        {
+            curvatureSegment.SetAdjustmentEnabled(false);
+            curvatureSegment.SetVisibility(false);
+        }
+
+        HideEyeSpecificInstructions();
+
+        if (!practice)
+        {
+            allRecords.Add(new UnifiedRecord(currentTrialIndex, trial, capturedAngle, amplitude, totalTime));
+        }
+
+        yield return new WaitForSeconds(1f);
     }
 
     void ShowInstruction(string text)
@@ -519,11 +516,11 @@ public class ExperimentManager : MonoBehaviour
         string path = Path.Combine(Application.persistentDataPath, filename);
 
         StringBuilder csv = new StringBuilder();
-        csv.AppendLine("TrialNumber,TaskType,R1,R2,RotationSpeed,Direction,AdjustedAmplitude,ReactionTime,ProbePhi,SphereRadius,RotationAngle,TimeInTrial,Timestamp");
+        csv.AppendLine("TrialNumber,TaskType,R1,R2,RotationSpeed,Direction,AdjustedAmplitude,ReactionTime,IsMinimalCurvature,StartingAngle,CapturedAngle,Timestamp");
 
         foreach (var record in allRecords)
         {
-            csv.AppendLine($"{record.trialNumber},{record.taskType},{record.R1},{record.R2},{record.rotationSpeed},{record.direction},{record.adjustedAmplitude},{record.reactionTime},{record.probePhi},{record.sphereRadius},{record.rotationAngle},{record.timeInTrial},{record.timestamp}");
+            csv.AppendLine($"{record.trialNumber},{record.taskType},{record.R1},{record.R2},{record.rotationSpeed},{record.direction},{record.adjustedAmplitude},{record.reactionTime},{record.isMinimalCurvature},{record.startingAngle},{record.capturedAngle},{record.timestamp}");
         }
 
         File.WriteAllText(path, csv.ToString());

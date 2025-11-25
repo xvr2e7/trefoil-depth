@@ -1,3 +1,5 @@
+// Archived script
+
 using UnityEngine;
 
 [RequireComponent(typeof(MeshFilter), typeof(MeshRenderer))]
