@@ -174,7 +174,7 @@ MonoBehaviour:
   leftEyeText: {fileID: 1799357935}
   rightEyeText: {fileID: 1240839420}
   autoStart: 0
-  curvCycle: 2
+  curvCycle: 5
 --- !u!1 &600133653
 GameObject:
   m_ObjectHideFlags: 0

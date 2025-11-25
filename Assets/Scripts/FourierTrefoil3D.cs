@@ -38,7 +38,7 @@ public class FourierTrefoil3D : MonoBehaviour
     void Start()
     {
         meshRenderer = GetComponent<MeshRenderer>();
-        Material mat = new Material(Shader.Find("Custom/LeftEyeOnly"));
+        Material mat = new Material(Shader.Find("Standard"));
         mat.color = Color.white;
         meshRenderer.material = mat;
 
