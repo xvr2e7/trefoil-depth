@@ -150,7 +150,7 @@ Transform:
   m_GameObject: {fileID: 210820481}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 2, y: 2, z: 0}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -268,6 +268,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 210820482}
+  - {fileID: 1342585495}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &359457008
@@ -386,6 +387,8 @@ MonoBehaviour:
   adjustableModel: {fileID: 752468353}
   curvatureTrefoil: {fileID: 359457008}
   curvatureSegment: {fileID: 210820483}
+  curvatureMarker: {fileID: 1342585496}
+  markerNormalOffset: 0.3
   instructionText: {fileID: 2133389898}
   leftEyeText: {fileID: 1799357935}
   rightEyeText: {fileID: 1240839420}
@@ -1292,7 +1295,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &1342585495
 Transform:
   m_ObjectHideFlags: 0
@@ -1306,7 +1309,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 0}
+  m_Father: {fileID: 359457007}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &1342585496
 MonoBehaviour:
@@ -2471,6 +2474,5 @@ SceneRoots:
   - {fileID: 752468349}
   - {fileID: 359457007}
   - {fileID: 1692497075}
-  - {fileID: 1342585495}
   - {fileID: 2063433915}
   - {fileID: 974917823}

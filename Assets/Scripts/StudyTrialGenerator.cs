@@ -33,30 +33,6 @@ public class CurvatureTrial
 }
 
 [Serializable]
-public class UnifiedTrial
-{
-    public enum TaskType { Depth, Curvature }
-
-    public TaskType taskType;
-    public DepthTrial depthTrial;
-    public CurvatureTrial curvatureTrial;
-
-    public UnifiedTrial(DepthTrial trial)
-    {
-        taskType = TaskType.Depth;
-        depthTrial = trial;
-        curvatureTrial = null;
-    }
-
-    public UnifiedTrial(CurvatureTrial trial)
-    {
-        taskType = TaskType.Curvature;
-        depthTrial = null;
-        curvatureTrial = trial;
-    }
-}
-
-[Serializable]
 public class UnifiedRecord
 {
     public int trialNumber;
@@ -110,7 +86,7 @@ public class StudyTrialGenerator
     public static List<DepthTrial> GeneratePracticeTrials()
     {
         List<DepthTrial> trials = new List<DepthTrial>();
-        trials.Add(new DepthTrial(1.0f, 1.5f, 60f, 1));
+        trials.Add(new DepthTrial(1.0f, 1.5f, 90f, 1));
         return trials;
     }
 
@@ -120,27 +96,25 @@ public class StudyTrialGenerator
 
         float[] shapes = { 1.5f, 2.0f };
         int[] directions = { 1, -1 };
-        float[] speeds = { 90f, 180f };
+        float speed = 90f;
         int repeats = 5;
 
         foreach (float r2 in shapes)
         {
             foreach (int dir in directions)
             {
-                foreach (float speed in speeds)
+                for (int r = 0; r < repeats; r++)
                 {
-                    for (int r = 0; r < repeats; r++)
-                    {
-                        trials.Add(new DepthTrial(1.0f, r2, speed, dir));
-                    }
+                    trials.Add(new DepthTrial(1.0f, r2, speed, dir));
                 }
             }
         }
 
+        Shuffle(trials);
         return trials;
     }
 
-    public static List<CurvatureTrial> GenerateCurvatureTrials()
+    public static List<CurvatureTrial> GenerateMinimalCurvatureTrials()
     {
         List<CurvatureTrial> trials = new List<CurvatureTrial>();
         System.Random rng = new System.Random();
@@ -151,6 +125,15 @@ public class StudyTrialGenerator
             trials.Add(new CurvatureTrial(true, startAngle));
         }
 
+        Shuffle(trials);
+        return trials;
+    }
+
+    public static List<CurvatureTrial> GenerateMaximalCurvatureTrials()
+    {
+        List<CurvatureTrial> trials = new List<CurvatureTrial>();
+        System.Random rng = new System.Random();
+
         for (int i = 0; i < 10; i++)
         {
             float startAngle = (float)(rng.NextDouble() * 360.0);
@@ -159,27 +142,6 @@ public class StudyTrialGenerator
 
         Shuffle(trials);
         return trials;
-    }
-
-    public static List<UnifiedTrial> GenerateAllTrials()
-    {
-        List<UnifiedTrial> allTrials = new List<UnifiedTrial>();
-
-        List<DepthTrial> depthTrials = GenerateDepthTrials();
-        List<CurvatureTrial> curvatureTrials = GenerateCurvatureTrials();
-
-        foreach (var trial in depthTrials)
-        {
-            allTrials.Add(new UnifiedTrial(trial));
-        }
-
-        foreach (var trial in curvatureTrials)
-        {
-            allTrials.Add(new UnifiedTrial(trial));
-        }
-
-        Shuffle(allTrials);
-        return allTrials;
     }
 
     private static void Shuffle<T>(List<T> list)

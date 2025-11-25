@@ -29,7 +29,9 @@ public class ExperimentManager : MonoBehaviour
     public bool autoStart = false;
 
     private List<DepthTrial> practiceTrials;
-    private List<UnifiedTrial> allTrials;
+    private List<DepthTrial> depthTrials;
+    private List<CurvatureTrial> minimalCurvatureTrials;
+    private List<CurvatureTrial> maximalCurvatureTrials;
     private List<UnifiedRecord> allRecords = new List<UnifiedRecord>();
 
     private int currentTrialIndex = 0;
@@ -68,7 +70,9 @@ public class ExperimentManager : MonoBehaviour
         InitializeInputDevices();
 
         practiceTrials = StudyTrialGenerator.GeneratePracticeTrials();
-        allTrials = StudyTrialGenerator.GenerateAllTrials();
+        depthTrials = StudyTrialGenerator.GenerateDepthTrials();
+        minimalCurvatureTrials = StudyTrialGenerator.GenerateMinimalCurvatureTrials();
+        maximalCurvatureTrials = StudyTrialGenerator.GenerateMaximalCurvatureTrials();
 
         if (stimulusTrefoil != null)
         {
@@ -258,10 +262,11 @@ public class ExperimentManager : MonoBehaviour
 
         ShowInstruction("PRACTICE\n\n" +
                         "TASK 2: Curvature Judgment\n\n" +
-                        "You will see a rotating white curve and a red marker near the tip of one lobe.\n\n" +
-                        "Stick to ONE 3D structure interpretation of the 2D curve as you watch the rotation.\n" +
-                        "Press 'A' when you see the MINIMAL curvature at the marked tip.\n\n" +
-                        "Then adjust the black segment's depth to match the curvature you perceived.\n\n" +
+                        "You will see a rotating white curve and a red marker near the tip of one lobe.\n" +
+                        "Stick to ONE 3D interpretation of the 2D curve as you watch the rotation.\n\n" +
+                        "Press 'A' when you see the MINIMAL curvature at the marked tip.\n" +
+                        "Then adjust the black segment to match what you perceived.\n" +
+                        "Moving UP will increase depth, DOWN will decrease depth.\n\n" +
                         "Press 'A' again to submit.\n\n" +
                         "Press 'A' to start practice.");
 
@@ -277,7 +282,7 @@ public class ExperimentManager : MonoBehaviour
     {
         currentState = ExperimentState.MainIntro;
         ShowInstruction("Practice complete.\n\n" +
-                       "Press 'A' to begin.");
+                       "Press 'A' to begin the main experiment.");
 
         yield return new WaitForSeconds(0.5f);
         yield return new WaitUntil(() => GetButtonDown());
@@ -285,30 +290,65 @@ public class ExperimentManager : MonoBehaviour
 
         currentState = ExperimentState.Main;
         isPractice = false;
+        currentTrialIndex = 0;
 
-        for (int i = 0; i < allTrials.Count; i++)
+        // Run all depth adjustment trials
+        for (int i = 0; i < depthTrials.Count; i++)
         {
-            currentTrialIndex = i;
-            UnifiedTrial trial = allTrials[i];
+            yield return StartCoroutine(RunDepthTrial(depthTrials[i], false));
+            currentTrialIndex++;
+        }
 
-            if (trial.taskType == UnifiedTrial.TaskType.Depth)
-            {
-                yield return StartCoroutine(RunDepthTrial(trial.depthTrial, false));
-            }
-            else
-            {
-                yield return StartCoroutine(RunCurvatureTrial(trial.curvatureTrial, false));
-            }
+        // Break after depth trials
+        ShowInstruction("Depth adjustment task complete.\n\n" +
+                       "Take a short break if needed.\n\n" +
+                       "Press 'A' to continue to the next task.");
 
-            if ((i + 1) % 16 == 0 && i + 1 < allTrials.Count)
-            {
-                ShowInstruction("Take a short break if needed.\n\n" +
-                               "Press 'A' to continue.");
+        yield return new WaitForSeconds(0.5f);
+        yield return new WaitUntil(() => GetButtonDown());
+        yield return new WaitForSeconds(0.5f);
 
-                yield return new WaitForSeconds(0.5f);
-                yield return new WaitUntil(() => GetButtonDown());
-                yield return new WaitForSeconds(0.5f);
-            }
+        // Instruction for minimal curvature block
+        ShowInstruction("MINIMAL Curvature Judgment\n\n" +
+                       "Press 'A' when you see MINIMAL curvature at the marked lobe tip.\n\n" +
+                       "Then adjust the black segment's depth to match.\n\n" +
+                       "Press 'A' to begin.");
+
+        yield return new WaitForSeconds(0.5f);
+        yield return new WaitUntil(() => GetButtonDown());
+        yield return new WaitForSeconds(0.5f);
+
+        // Run all minimal curvature trials
+        for (int i = 0; i < minimalCurvatureTrials.Count; i++)
+        {
+            yield return StartCoroutine(RunCurvatureTrial(minimalCurvatureTrials[i], false));
+            currentTrialIndex++;
+        }
+
+        // Break between minimal and maximal curvature
+        ShowInstruction("Minimal curvature block complete.\n\n" +
+                       "Take a short break if needed.\n\n" +
+                       "Press 'A' to continue.");
+
+        yield return new WaitForSeconds(0.5f);
+        yield return new WaitUntil(() => GetButtonDown());
+        yield return new WaitForSeconds(0.5f);
+
+        // Instruction for maximal curvature block
+        ShowInstruction("MAXIMAL Curvature Judgment\n\n" +
+                       "Press 'A' when you see MAXIMAL curvature at the marked lobe tip.\n\n" +
+                       "Then adjust the black segment's depth to match.\n\n" +
+                       "Press 'A' to begin.");
+
+        yield return new WaitForSeconds(0.5f);
+        yield return new WaitUntil(() => GetButtonDown());
+        yield return new WaitForSeconds(0.5f);
+
+        // Run all maximal curvature trials
+        for (int i = 0; i < maximalCurvatureTrials.Count; i++)
+        {
+            yield return StartCoroutine(RunCurvatureTrial(maximalCurvatureTrials[i], false));
+            currentTrialIndex++;
         }
     }
 
@@ -377,8 +417,7 @@ public class ExperimentManager : MonoBehaviour
 
     IEnumerator RunCurvatureTrial(CurvatureTrial trial, bool practice)
     {
-        string curvatureType = trial.isMinimalCurvature ? "MINIMAL" : "MAXIMAL";
-        ShowEyeSpecificInstruction($"Press 'A' when you see {curvatureType} curvature at the lobe tip.", 1);
+        ShowInstruction("");
 
         if (curvatureTrefoil != null)
         {
