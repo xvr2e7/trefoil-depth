@@ -264,7 +264,7 @@ public class ExperimentManager : MonoBehaviour
                         "TASK 2: Curvature Judgment\n\n" +
                         "You will see a rotating white curve and a red marker near the tip of one lobe.\n" +
                         "Stick to ONE 3D interpretation of the 2D curve as you watch the rotation.\n\n" +
-                        "Press 'A' when you see the MINIMAL curvature at the marked tip.\n" +
+                        "Press 'A' when you see the MINIMAL curvature (i.e., the least bent) at the marked tip.\n" +
                         "Then adjust the black segment to match what you perceived.\n" +
                         "Moving UP will increase depth, DOWN will decrease depth.\n\n" +
                         "Press 'A' again to submit.\n\n" +
@@ -310,7 +310,7 @@ public class ExperimentManager : MonoBehaviour
 
         // Instruction for minimal curvature block
         ShowInstruction("MINIMAL Curvature Judgment\n\n" +
-                       "Press 'A' when you see MINIMAL curvature at the marked lobe tip.\n\n" +
+                       "Press 'A' when you see MINIMAL curvature (i.e., the least bent) at the marked lobe tip.\n\n" +
                        "Then adjust the black segment's depth to match.\n\n" +
                        "Press 'A' to begin.");
 
@@ -326,8 +326,7 @@ public class ExperimentManager : MonoBehaviour
         }
 
         // Break between minimal and maximal curvature
-        ShowInstruction("Minimal curvature block complete.\n\n" +
-                       "Take a short break if needed.\n\n" +
+        ShowInstruction("Take a short break if needed.\n\n" +
                        "Press 'A' to continue.");
 
         yield return new WaitForSeconds(0.5f);
@@ -336,7 +335,7 @@ public class ExperimentManager : MonoBehaviour
 
         // Instruction for maximal curvature block
         ShowInstruction("MAXIMAL Curvature Judgment\n\n" +
-                       "Press 'A' when you see MAXIMAL curvature at the marked lobe tip.\n\n" +
+                       "Press 'A' when you see MAXIMAL curvature (i.e., the most bent) at the marked lobe tip.\n\n" +
                        "Then adjust the black segment's depth to match.\n\n" +
                        "Press 'A' to begin.");
 

@@ -34,6 +34,7 @@ public class CurvatureSegment : MonoBehaviour
     private Mesh mesh;
     private MeshRenderer meshRenderer;
     private InputDevice rightHandDevice;
+    private Vector3 positionOffset = Vector3.zero;
 
     void Start()
     {
@@ -85,6 +86,14 @@ public class CurvatureSegment : MonoBehaviour
 
     void GeneratePointMesh()
     {
+        // Calculate the center point (at phi=0) to use as reference
+        float centerX = R1 * Mathf.Cos(0f) + R2 * Mathf.Cos(0f);
+        float centerY = R1 * Mathf.Sin(0f) - R2 * Mathf.Sin(0f);
+        float centerZ_base = a1 * Mathf.Sin(0f) + b1 * Mathf.Cos(0f) +
+                             a2 * Mathf.Sin(0f) + b2 * Mathf.Cos(0f) +
+                             a3 * Mathf.Sin(0f) + b3 * Mathf.Cos(0f);
+        Vector3 segmentCenter = new Vector3(centerX, centerY, amplitude * centerZ_base);
+
         Vector3[] baseCoordinates = new Vector3[segments];
         float phiRange = endPhi - startPhi;
 
@@ -101,7 +110,8 @@ public class CurvatureSegment : MonoBehaviour
 
             float z = amplitude * z_base;
 
-            baseCoordinates[i] = new Vector3(x, y, z);
+            // Translate so segment center aligns with positionOffset
+            baseCoordinates[i] = new Vector3(x, y, z) - segmentCenter + positionOffset;
         }
 
         int vertsPerPoint = 6;
@@ -141,6 +151,12 @@ public class CurvatureSegment : MonoBehaviour
         mesh.triangles = triangles;
         mesh.RecalculateNormals();
         mesh.RecalculateBounds();
+    }
+
+    public void SetPositionOffset(Vector3 offset)
+    {
+        positionOffset = offset;
+        GeneratePointMesh();
     }
 
     public void SetParameters(float r1, float r2)
