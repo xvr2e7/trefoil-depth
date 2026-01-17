@@ -37,6 +37,21 @@ public class CurvatureMarker : MonoBehaviour
         transform.localPosition = position;
     }
 
+    public void SetWorldPosition(Vector3 worldPosition)
+    {
+        transform.position = worldPosition;
+    }
+
+    public void DetachFromParent()
+    {
+        transform.SetParent(null, true);
+    }
+
+    public void ReattachToParent(Transform parent)
+    {
+        transform.SetParent(parent, true);
+    }
+
     public void SetVisibility(bool visible)
     {
         meshRenderer.enabled = visible;

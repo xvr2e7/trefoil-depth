@@ -14,7 +14,7 @@ public class ExperimentManager : MonoBehaviour
 
     [Header("Curvature Task")]
     public TrefoilGenerator curvatureTrefoil;
-    public CurvatureSegment curvatureSegment;
+    public CurvatureAdjustableTrefoil curvatureAdjustableTrefoil;
     public CurvatureMarker curvatureMarker;
 
     [Header("Curvature Task Settings")]
@@ -22,8 +22,7 @@ public class ExperimentManager : MonoBehaviour
 
     [Header("UI")]
     public TextMeshProUGUI instructionText;
-    public TextMeshProUGUI leftEyeText;
-    public TextMeshProUGUI rightEyeText;
+    public TextMeshProUGUI ExplainText;
 
     [Header("Experiment Settings")]
     public bool autoStart = false;
@@ -42,6 +41,7 @@ public class ExperimentManager : MonoBehaviour
 
     private InputDevice rightHandDevice;
     private bool lastButtonState = false;
+    private bool lastSecondaryButtonState = false;
 
     private enum ExperimentState
     {
@@ -89,9 +89,9 @@ public class ExperimentManager : MonoBehaviour
             curvatureTrefoil.SetVisibility(false);
         }
 
-        if (curvatureSegment != null)
+        if (curvatureAdjustableTrefoil != null)
         {
-            curvatureSegment.SetVisibility(false);
+            curvatureAdjustableTrefoil.SetVisibility(false);
         }
 
         if (curvatureMarker != null && curvatureTrefoil != null)
@@ -100,16 +100,10 @@ public class ExperimentManager : MonoBehaviour
             curvatureMarker.SetVisibility(false);
         }
 
-        if (leftEyeText != null)
+        if (ExplainText != null)
         {
-            leftEyeText.text = "";
-            leftEyeText.gameObject.SetActive(false);
-        }
-
-        if (rightEyeText != null)
-        {
-            rightEyeText.text = "";
-            rightEyeText.gameObject.SetActive(false);
+            ExplainText.text = "";
+            ExplainText.gameObject.SetActive(false);
         }
 
         ShowInstruction("Welcome to the Experiment!\n\nPress 'A' to begin.");
@@ -158,6 +152,20 @@ public class ExperimentManager : MonoBehaviour
             {
                 bool pressed = currentState && !lastButtonState;
                 lastButtonState = currentState;
+                return pressed;
+            }
+        }
+        return false;
+    }
+
+    bool GetSecondaryButtonDown()
+    {
+        if (rightHandDevice.isValid)
+        {
+            if (rightHandDevice.TryGetFeatureValue(CommonUsages.secondaryButton, out bool currentState))
+            {
+                bool pressed = currentState && !lastSecondaryButtonState;
+                lastSecondaryButtonState = currentState;
                 return pressed;
             }
         }
@@ -244,10 +252,11 @@ public class ExperimentManager : MonoBehaviour
         currentState = ExperimentState.PracticeIntro;
         ShowInstruction("PRACTICE\n\n" +
                         "TASK 1: Depth Adjustment\n\n" +
-                        "You will see a rotating white curve.\n\n" +
-                        "Adjust the black curve by moving the joystick UP/DOWN to match the 3D shape you perceive.\n\n" +
-                        "Moving UP will increase depth, DOWN will decrease depth.\n\n" +
-                        "Press 'A' to submit your adjustment.\n" +
+                        "You will see a rotating 2D white curve.\n\n" +
+                        "Press 'B' to toggle between the 2D view and a 3D model.\n\n" +
+                        "When the 3D model is visible, adjust it by moving the joystick UP/DOWN to match the depth you perceive.\n\n" +
+                        "Moving UP increases depth, DOWN decreases depth.\n\n" +
+                        "Press 'A' to submit your adjustment.\n\n" +
                         "Press 'A' to start practice.");
 
         yield return new WaitForSeconds(0.5f);
@@ -262,11 +271,11 @@ public class ExperimentManager : MonoBehaviour
 
         ShowInstruction("PRACTICE\n\n" +
                         "TASK 2: Curvature Judgment\n\n" +
-                        "You will see a rotating white curve and a red marker near the tip of one lobe.\n" +
-                        "Stick to ONE 3D interpretation of the 2D curve as you watch the rotation.\n\n" +
-                        "Press 'A' when you see the MINIMAL curvature (i.e., the least bent) at the marked tip.\n" +
-                        "Then adjust the black segment to match what you perceived.\n" +
-                        "Moving UP will increase depth, DOWN will decrease depth.\n\n" +
+                        "You will see a rotating 2D white curve with a red marker near the tip of one lobe.\n" +
+                        "Stick to ONE 3D interpretation as you watch the rotation.\n\n" +
+                        "Press 'A' when you see the MINIMAL curvature (i.e., the least bent) at the marked tip.\n\n" +
+                        "A 3D model will appear. Press 'B' to toggle back to the 2D view.\n\n" +
+                        "Adjust the red segment by moving the joystick UP/DOWN to match what you perceived.\n\n" +
                         "Press 'A' again to submit.\n\n" +
                         "Press 'A' to start practice.");
 
@@ -311,7 +320,8 @@ public class ExperimentManager : MonoBehaviour
         // Instruction for minimal curvature block
         ShowInstruction("MINIMAL Curvature Judgment\n\n" +
                        "Press 'A' when you see MINIMAL curvature (i.e., the least bent) at the marked lobe tip.\n\n" +
-                       "Then adjust the black segment's depth to match.\n\n" +
+                       "A 3D model will appear. Use 'B' to toggle back to 2D view if needed.\n\n" +
+                       "Adjust the red segment's depth to match what you perceived.\n\n" +
                        "Press 'A' to begin.");
 
         yield return new WaitForSeconds(0.5f);
@@ -336,7 +346,8 @@ public class ExperimentManager : MonoBehaviour
         // Instruction for maximal curvature block
         ShowInstruction("MAXIMAL Curvature Judgment\n\n" +
                        "Press 'A' when you see MAXIMAL curvature (i.e., the most bent) at the marked lobe tip.\n\n" +
-                       "Then adjust the black segment's depth to match.\n\n" +
+                       "A 3D model will appear. Use 'B' to toggle back to 2D view if needed.\n\n" +
+                       "Adjust the red segment's depth to match what you perceived.\n\n" +
                        "Press 'A' to begin.");
 
         yield return new WaitForSeconds(0.5f);
@@ -377,6 +388,9 @@ public class ExperimentManager : MonoBehaviour
 
         yield return new WaitForSeconds(0.5f);
 
+        // Start with only 2D trefoil visible
+        bool show3D = false;
+
         if (stimulusTrefoil != null)
         {
             stimulusTrefoil.SetVisibility(true);
@@ -384,13 +398,62 @@ public class ExperimentManager : MonoBehaviour
 
         if (adjustableModel != null)
         {
-            adjustableModel.SetVisibility(true);
+            adjustableModel.SetVisibility(false);
+            adjustableModel.SetAdjustmentEnabled(false);
         }
 
         trialStartTime = Time.time;
 
         yield return new WaitForSeconds(0.5f);
-        yield return new WaitUntil(() => GetButtonDown());
+
+        // Wait for either 'A' (submit) or 'B' (toggle) button
+        bool submitted = false;
+        while (!submitted)
+        {
+            if (GetSecondaryButtonDown())
+            {
+                // Toggle between 2D and 3D
+                show3D = !show3D;
+
+                if (show3D)
+                {
+                    // Show 3D model, hide 2D trefoil
+                    if (stimulusTrefoil != null)
+                    {
+                        stimulusTrefoil.PauseRotation();
+                        stimulusTrefoil.SetVisibility(false);
+                    }
+
+                    if (adjustableModel != null)
+                    {
+                        adjustableModel.SetVisibility(true);
+                        adjustableModel.SetAdjustmentEnabled(true);
+                    }
+                }
+                else
+                {
+                    // Show 2D trefoil, hide 3D model (rotation resumes from where it was paused)
+                    if (stimulusTrefoil != null)
+                    {
+                        stimulusTrefoil.ResumeRotation();
+                        stimulusTrefoil.SetVisibility(true);
+                    }
+
+                    if (adjustableModel != null)
+                    {
+                        adjustableModel.SetVisibility(false);
+                        adjustableModel.SetAdjustmentEnabled(false);
+                    }
+                }
+            }
+
+            if (GetButtonDown())
+            {
+                submitted = true;
+            }
+
+            yield return null;
+        }
 
         float reactionTime = Time.time - trialStartTime;
         float amplitude = adjustableModel != null ? adjustableModel.GetAdjustmentValue() : 0f;
@@ -404,6 +467,7 @@ public class ExperimentManager : MonoBehaviour
         if (adjustableModel != null)
         {
             adjustableModel.SetVisibility(false);
+            adjustableModel.SetAdjustmentEnabled(false);
         }
 
         if (!practice)
@@ -434,9 +498,9 @@ public class ExperimentManager : MonoBehaviour
             curvatureMarker.SetVisibility(true);
         }
 
-        if (curvatureSegment != null)
+        if (curvatureAdjustableTrefoil != null)
         {
-            curvatureSegment.SetVisibility(false);
+            curvatureAdjustableTrefoil.SetVisibility(false);
         }
 
         yield return new WaitForSeconds(0.5f);
@@ -448,45 +512,126 @@ public class ExperimentManager : MonoBehaviour
         float capturedAngle = curvatureTrefoil != null ? curvatureTrefoil.GetCurrentAngle() : 0f;
         float phase1Time = Time.time - trialStartTime;
 
-        if (curvatureTrefoil != null)
+        // Capture the marker position and detach it from the trefoil so it stays static
+        Vector3 capturedMarkerWorldPosition = Vector3.zero;
+        if (curvatureMarker != null && curvatureTrefoil != null)
         {
-            curvatureTrefoil.PauseRotation();
-            curvatureTrefoil.SetColor(Color.white);
-        }
-
-        if (curvatureMarker != null)
-        {
+            // Get the marker's current world position
+            capturedMarkerWorldPosition = curvatureMarker.transform.position;
+            // Detach from parent so it won't rotate with the trefoil
+            curvatureMarker.DetachFromParent();
+            // Keep it at the captured position
+            curvatureMarker.SetWorldPosition(capturedMarkerWorldPosition);
+            // Hide the marker initially
             curvatureMarker.SetVisibility(false);
         }
 
-        if (curvatureSegment != null)
+        // Show the adjustable 3D trefoil at the captured rotation angle
+        // and hide the 2D trefoil
+        bool show3D = true;
+
+        if (curvatureTrefoil != null)
         {
-            curvatureSegment.SetParameters(1.0f, 2.0f);
-            curvatureSegment.ResetAmplitude(0f);
-            curvatureSegment.SetColor(Color.black);
-            curvatureSegment.SetAdjustmentEnabled(true);
-            curvatureSegment.SetVisibility(true);
+            curvatureTrefoil.PauseRotation();
+            curvatureTrefoil.SetVisibility(false);
+        }
+
+        if (curvatureAdjustableTrefoil != null)
+        {
+            curvatureAdjustableTrefoil.ResetParameters(0f);
+            curvatureAdjustableTrefoil.SetRotationAngle(capturedAngle);
+            curvatureAdjustableTrefoil.SetColors(Color.white, Color.red);
+            curvatureAdjustableTrefoil.SetHighlightRange(-Mathf.PI / 12f, Mathf.PI / 12f);
+            curvatureAdjustableTrefoil.SetAdjustmentEnabled(true);
+            curvatureAdjustableTrefoil.SetVisibility(true);
         }
 
         yield return new WaitForSeconds(0.3f);
 
         float phase2StartTime = Time.time;
 
-        yield return new WaitUntil(() => GetButtonDown());
+        // Wait for either 'A' (submit) or 'B' (toggle) button
+        bool submitted = false;
+        while (!submitted)
+        {
+            if (GetSecondaryButtonDown())
+            {
+                // Toggle between 2D and 3D
+                show3D = !show3D;
+
+                if (show3D)
+                {
+                    // Show 3D model, hide 2D trefoil and marker
+                    if (curvatureTrefoil != null)
+                    {
+                        curvatureTrefoil.PauseRotation();
+                        curvatureTrefoil.SetVisibility(false);
+                    }
+
+                    if (curvatureMarker != null)
+                    {
+                        curvatureMarker.SetVisibility(false);
+                    }
+
+                    if (curvatureAdjustableTrefoil != null)
+                    {
+                        curvatureAdjustableTrefoil.SetVisibility(true);
+                        curvatureAdjustableTrefoil.SetAdjustmentEnabled(true);
+                    }
+                }
+                else
+                {
+                    // Show 2D trefoil with static marker at captured position, hide 3D model
+                    if (curvatureTrefoil != null)
+                    {
+                        curvatureTrefoil.ResumeRotation();
+                        curvatureTrefoil.SetVisibility(true);
+                    }
+
+                    if (curvatureMarker != null)
+                    {
+                        // Set marker at the captured world position (static, not moving with trefoil)
+                        curvatureMarker.SetWorldPosition(capturedMarkerWorldPosition);
+                        curvatureMarker.SetVisibility(true);
+                    }
+
+                    if (curvatureAdjustableTrefoil != null)
+                    {
+                        curvatureAdjustableTrefoil.SetVisibility(false);
+                        curvatureAdjustableTrefoil.SetAdjustmentEnabled(false);
+                    }
+                }
+            }
+
+            if (GetButtonDown())
+            {
+                submitted = true;
+            }
+
+            yield return null;
+        }
 
         float phase2Time = Time.time - phase2StartTime;
         float totalTime = phase1Time + phase2Time;
-        float amplitude = curvatureSegment != null ? curvatureSegment.GetAmplitude() : 0f;
+        float amplitude = curvatureAdjustableTrefoil != null ? curvatureAdjustableTrefoil.GetAdjustmentValue() : 0f;
 
         if (curvatureTrefoil != null)
         {
+            curvatureTrefoil.PauseRotation();
             curvatureTrefoil.SetVisibility(false);
         }
 
-        if (curvatureSegment != null)
+        if (curvatureAdjustableTrefoil != null)
         {
-            curvatureSegment.SetAdjustmentEnabled(false);
-            curvatureSegment.SetVisibility(false);
+            curvatureAdjustableTrefoil.SetAdjustmentEnabled(false);
+            curvatureAdjustableTrefoil.SetVisibility(false);
+        }
+
+        // Re-parent the marker back to the trefoil for the next trial
+        if (curvatureMarker != null && curvatureTrefoil != null)
+        {
+            curvatureMarker.ReattachToParent(curvatureTrefoil.transform);
+            curvatureMarker.SetVisibility(false);
         }
 
         HideEyeSpecificInstructions();
@@ -514,36 +659,18 @@ public class ExperimentManager : MonoBehaviour
             instructionText.text = "";
         }
 
-        if (leftEyeText != null)
+        if (ExplainText != null)
         {
-            leftEyeText.gameObject.SetActive(false);
-        }
-        if (rightEyeText != null)
-        {
-            rightEyeText.gameObject.SetActive(false);
-        }
-
-        if (eye == 0 && leftEyeText != null)
-        {
-            leftEyeText.text = text;
-            leftEyeText.gameObject.SetActive(true);
-        }
-        else if (eye == 1 && rightEyeText != null)
-        {
-            rightEyeText.text = text;
-            rightEyeText.gameObject.SetActive(true);
+            ExplainText.text = text;
+            ExplainText.gameObject.SetActive(true);
         }
     }
 
     void HideEyeSpecificInstructions()
     {
-        if (leftEyeText != null)
+        if (ExplainText != null)
         {
-            leftEyeText.gameObject.SetActive(false);
-        }
-        if (rightEyeText != null)
-        {
-            rightEyeText.gameObject.SetActive(false);
+            ExplainText.gameObject.SetActive(false);
         }
     }
 

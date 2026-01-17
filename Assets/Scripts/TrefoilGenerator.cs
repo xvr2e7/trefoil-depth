@@ -25,7 +25,7 @@ public class TrefoilGenerator : MonoBehaviour
     {
         meshRenderer = GetComponent<MeshRenderer>();
         Material mat = new Material(Shader.Find("Custom/RightEyeOnly"));
-        mat.color = Color.white;
+        mat.color = Color.black;
         meshRenderer.material = mat;
 
         mesh = new Mesh();

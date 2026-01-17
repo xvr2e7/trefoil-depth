@@ -35,6 +35,7 @@ public class CurvatureSegment : MonoBehaviour
     private MeshRenderer meshRenderer;
     private InputDevice rightHandDevice;
     private Vector3 positionOffset = Vector3.zero;
+    private float rotationAngle = 0f;
 
     void Start()
     {
@@ -97,6 +98,11 @@ public class CurvatureSegment : MonoBehaviour
         Vector3[] baseCoordinates = new Vector3[segments];
         float phiRange = endPhi - startPhi;
 
+        // Convert rotation angle to radians
+        float angleRad = rotationAngle * Mathf.Deg2Rad;
+        float cosAngle = Mathf.Cos(angleRad);
+        float sinAngle = Mathf.Sin(angleRad);
+
         for (int i = 0; i < segments; i++)
         {
             float phi = startPhi + i * phiRange / (segments - 1);
@@ -110,8 +116,12 @@ public class CurvatureSegment : MonoBehaviour
 
             float z = amplitude * z_base;
 
+            // Apply rotation around z-axis to match captured angle
+            float xRotated = x * cosAngle - y * sinAngle;
+            float yRotated = x * sinAngle + y * cosAngle;
+
             // Translate so segment center aligns with positionOffset
-            baseCoordinates[i] = new Vector3(x, y, z) - segmentCenter + positionOffset;
+            baseCoordinates[i] = new Vector3(xRotated, yRotated, z) - segmentCenter + positionOffset;
         }
 
         int vertsPerPoint = 6;
@@ -190,5 +200,11 @@ public class CurvatureSegment : MonoBehaviour
     public void SetColor(Color color)
     {
         meshRenderer.material.color = color;
+    }
+
+    public void SetRotationAngle(float angle)
+    {
+        rotationAngle = angle;
+        GeneratePointMesh();
     }
 }

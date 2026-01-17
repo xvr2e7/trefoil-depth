@@ -1,17 +1,17 @@
 using UnityEngine;
 using UnityEngine.XR;
-using System.IO;
 
 [RequireComponent(typeof(MeshFilter), typeof(MeshRenderer))]
-public class FourierTrefoil3D : MonoBehaviour
+public class CurvatureAdjustableTrefoil : MonoBehaviour
 {
     [Header("Display")]
     public float tubeRadius = 0.05f;
     public int radialSegments = 8;
+    public int pathSegments = 1000;
 
     [Header("Trefoil Parameters")]
-    public float R1 = 2.0f;
-    public float R2 = 0.5f;
+    public float R1 = 1.0f;
+    public float R2 = 2.0f;
 
     [Header("Depth Control")]
     public float amplitude = 0f;
@@ -19,63 +19,63 @@ public class FourierTrefoil3D : MonoBehaviour
     public float minAmplitude = -5f;
     public float maxAmplitude = 5f;
 
-    [Header("Calibration")]
-    public bool rotationMode = false;
-    public float rotationSpeed = 30f;
-    public bool adjustmentEnabled = true;
+    [Header("Segment Highlighting")]
+    public float highlightStartPhi = -Mathf.PI / 12f;
+    public float highlightEndPhi = Mathf.PI / 12f;
+    public Color baseColor = Color.white;
+    public Color highlightColor = Color.red;
+
+    [Header("Control")]
+    public bool adjustmentEnabled = false;
 
     private Mesh mesh;
-    private float[] phiValues;  // φ values from CSV
-    private float[] zBaseValues;  // z_base values from CSV (Fourier-optimized)
+    private Vector3[] baseCoordinates;
     private MeshRenderer meshRenderer;
-    private float currentRotation = 0f;
+    private Material segmentMaterial;
     private InputDevice rightHandDevice;
 
     void Start()
     {
         meshRenderer = GetComponent<MeshRenderer>();
-        Material mat = new Material(Shader.Find("Standard"));
-        mat.color = Color.white;
-        meshRenderer.material = mat;
+
+        // Create material with segment highlighting shader
+        segmentMaterial = new Material(Shader.Find("Custom/SegmentHighlight"));
+        segmentMaterial.SetColor("_BaseColor", baseColor);
+        segmentMaterial.SetColor("_HighlightColor", highlightColor);
+        segmentMaterial.SetFloat("_HighlightStart", highlightStartPhi);
+        segmentMaterial.SetFloat("_HighlightEnd", highlightEndPhi);
+        segmentMaterial.SetFloat("_R1", R1);
+        segmentMaterial.SetFloat("_R2", R2);
+        meshRenderer.material = segmentMaterial;
 
         mesh = new Mesh();
         GetComponent<MeshFilter>().mesh = mesh;
 
         InitializeInputDevice();
-        LoadCoordinatesFromCSV();
+        GenerateBaseCoordinates();
 
         adjustmentEnabled = false;
         meshRenderer.enabled = false;
         GenerateTubeMesh();
     }
 
-    void LoadCoordinatesFromCSV()
+    void GenerateBaseCoordinates()
     {
-        TextAsset csvFile = Resources.Load<TextAsset>("coords_final");
-        string[] lines = csvFile.text.Split('\n');
+        // Generate trefoil coordinates with R1=1.0, R2=2.0 to match curvature task
+        baseCoordinates = new Vector3[pathSegments];
 
-        int count = 0;
-        for (int i = 1; i < lines.Length; i++)
+        for (int i = 0; i < pathSegments; i++)
         {
-            if (!string.IsNullOrWhiteSpace(lines[i])) count++;
-        }
+            float phi = i * 2 * Mathf.PI / pathSegments;
 
-        phiValues = new float[count];
-        zBaseValues = new float[count];
-        int idx = 0;
+            float x = R1 * Mathf.Cos(phi) + R2 * Mathf.Cos(2 * phi);
+            float y = R1 * Mathf.Sin(phi) - R2 * Mathf.Sin(2 * phi);
 
-        for (int i = 1; i < lines.Length; i++)
-        {
-            string line = lines[i].Trim();
-            if (string.IsNullOrEmpty(line)) continue;
+            // For z_base, we'll use a simple Fourier approximation
+            // This will be scaled by amplitude during mesh generation
+            float z_base = Mathf.Sin(phi) + 0.5f * Mathf.Sin(2 * phi);
 
-            string[] values = line.Split(',');
-            float phi = float.Parse(values[0]);
-            float z = float.Parse(values[3]);
-
-            phiValues[idx] = phi;
-            zBaseValues[idx] = z;
-            idx++;
+            baseCoordinates[i] = new Vector3(x, y, z_base);
         }
     }
 
@@ -101,43 +101,27 @@ public class FourierTrefoil3D : MonoBehaviour
 
         if (rightHandDevice.TryGetFeatureValue(CommonUsages.primary2DAxis, out Vector2 joystick))
         {
-            if (rotationMode)
-            {
-                currentRotation += joystick.x * rotationSpeed * Time.deltaTime;
-                transform.localRotation = Quaternion.Euler(0, currentRotation, 0);
-            }
-            else
-            {
-                float oldAmplitude = amplitude;
-                amplitude += joystick.y * amplitudeSpeed * Time.deltaTime;
-                amplitude = Mathf.Clamp(amplitude, minAmplitude, maxAmplitude);
+            float oldAmplitude = amplitude;
+            amplitude += joystick.y * amplitudeSpeed * Time.deltaTime;
+            amplitude = Mathf.Clamp(amplitude, minAmplitude, maxAmplitude);
 
-                if (Mathf.Abs(amplitude - oldAmplitude) > 0.001f)
-                {
-                    GenerateTubeMesh();
-                }
+            if (Mathf.Abs(amplitude - oldAmplitude) > 0.001f)
+            {
+                GenerateTubeMesh();
             }
         }
     }
 
     void GenerateTubeMesh()
     {
-        int segments = phiValues.Length;
+        int segments = baseCoordinates.Length;
 
-        // Create path points: calculate XY from R1/R2, use CSV's z values
+        // Create path points with adjusted z-coordinates
         Vector3[] pathPoints = new Vector3[segments];
         for (int i = 0; i < segments; i++)
         {
-            float phi = phiValues[i];
-
-            // Calculate XY coordinates based on R1/R2 parameters
-            float x = R1 * Mathf.Cos(phi) + R2 * Mathf.Cos(2 * phi);
-            float y = R1 * Mathf.Sin(phi) - R2 * Mathf.Sin(2 * phi);
-
-            // Use Fourier-optimized z from CSV, scaled by amplitude
-            float z = zBaseValues[i] * amplitude;
-
-            pathPoints[i] = new Vector3(x, y, z);
+            Vector3 basePos = baseCoordinates[i];
+            pathPoints[i] = new Vector3(basePos.x, basePos.y, basePos.z * amplitude);
         }
 
         // Generate tube mesh
@@ -199,26 +183,16 @@ public class FourierTrefoil3D : MonoBehaviour
         mesh.RecalculateBounds();
     }
 
-    public void ResetParameters(float r1, float r2, float phase)
+    public void SetRotationAngle(float angle)
     {
-        R1 = r1;
-        R2 = r2;
-        amplitude = 0f;
-        currentRotation = 0f;
-        transform.localRotation = Quaternion.identity;
-        GenerateTubeMesh();
-        adjustmentEnabled = true;
+        // Set the rotation of this GameObject to match the captured angle
+        transform.localRotation = Quaternion.Euler(0, 0, angle);
     }
 
-    public void SetRotationMode(bool enable)
+    public void ResetParameters(float startingAmplitude = 0f)
     {
-        rotationMode = enable;
-        adjustmentEnabled = enable;
-        if (enable)
-        {
-            amplitude = 1f;
-            GenerateTubeMesh();
-        }
+        amplitude = startingAmplitude;
+        GenerateTubeMesh();
     }
 
     public void SetAdjustmentEnabled(bool enabled)
@@ -234,5 +208,29 @@ public class FourierTrefoil3D : MonoBehaviour
     public void SetVisibility(bool visible)
     {
         meshRenderer.enabled = visible;
+    }
+
+    public void SetHighlightRange(float startPhi, float endPhi)
+    {
+        highlightStartPhi = startPhi;
+        highlightEndPhi = endPhi;
+
+        if (segmentMaterial != null)
+        {
+            segmentMaterial.SetFloat("_HighlightStart", startPhi);
+            segmentMaterial.SetFloat("_HighlightEnd", endPhi);
+        }
+    }
+
+    public void SetColors(Color baseCol, Color highlightCol)
+    {
+        baseColor = baseCol;
+        highlightColor = highlightCol;
+
+        if (segmentMaterial != null)
+        {
+            segmentMaterial.SetColor("_BaseColor", baseCol);
+            segmentMaterial.SetColor("_HighlightColor", highlightCol);
+        }
     }
 }
