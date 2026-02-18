@@ -15,6 +15,8 @@ public class HandTrackingExperimentManager : MonoBehaviour
 
     [Header("Calibration")]
     public CubeCalibrator calibrationCube;
+    public TrefoilGenerator stimulusTrefoil;
+    public FourierTrefoil3D calibrationModel;
 
     [Header("UI")]
     public TextMeshProUGUI instructionText;
@@ -41,6 +43,7 @@ public class HandTrackingExperimentManager : MonoBehaviour
     private enum ExperimentState
     {
         Welcome,
+        HandednessSelection,
         CalibrationStage1,
         CalibrationStage2,
         CalibrationStage3,
@@ -93,7 +96,17 @@ public class HandTrackingExperimentManager : MonoBehaviour
             calibrationCube.SetVisibility(false);
         }
 
-        ShowInstruction("Welcome to the Experiment!\n\nPress 'A' to begin.");
+        if (stimulusTrefoil != null)
+        {
+            stimulusTrefoil.SetVisibility(false);
+        }
+
+        if (calibrationModel != null)
+        {
+            calibrationModel.SetVisibility(false);
+        }
+
+        ShowInstruction("Welcome!\n\nPress 'A' to begin.");
 
         if (autoStart)
         {
@@ -161,25 +174,58 @@ public class HandTrackingExperimentManager : MonoBehaviour
 
     IEnumerator RunExperiment()
     {
+        yield return StartCoroutine(HandednessSelectionPhase());
         yield return StartCoroutine(CalibrationPhase());
         yield return StartCoroutine(PracticePhase());
         yield return StartCoroutine(MainExperimentPhase());
         yield return StartCoroutine(EndPhase());
     }
 
+    IEnumerator HandednessSelectionPhase()
+    {
+        currentState = ExperimentState.HandednessSelection;
+
+        ShowInstruction("What is your dominant hand?\n\n" +
+                       "Press 'A' for RIGHT hand\n" +
+                       "Press 'B' for LEFT hand");
+
+        yield return new WaitForSeconds(0.5f);
+
+        bool handednessSelected = false;
+        while (!handednessSelected)
+        {
+            // 'A' button = Right handed
+            if (GetButtonDown())
+            {
+                HandednessManager.Instance.SetDominantHand(HandednessManager.Handedness.RightHanded);
+                handednessSelected = true;
+                ShowInstruction("Right-handed selected.\n\nPreparing experiment...");
+            }
+            // 'B' button = Left handed
+            else if (GetSecondaryButtonDown())
+            {
+                HandednessManager.Instance.SetDominantHand(HandednessManager.Handedness.LeftHanded);
+                handednessSelected = true;
+                ShowInstruction("Left-handed selected.\n\nPreparing experiment...");
+            }
+
+            yield return null;
+        }
+
+        yield return new WaitForSeconds(1.5f);
+    }
+
     IEnumerator CalibrationPhase()
     {
-        // Phase 1: Hand tracking practice
+        // Stage 1: Hand tracking practice
         currentState = ExperimentState.CalibrationStage1;
 
-        ShowEyeSpecificInstruction("CALIBRATION 1/3: Hand Tracking Test\n\n" +
-                                   "Practice the hand controls:\n\n" +
-                                   "RIGHT hand: Pinch and hold = Draw\n" +
-                                   "LEFT hand: Hover index finger = Erase\n" +
-                                   "'B' button = Clear all traces\n\n" +
-                                   "Each pinch creates a separate trace.\n" +
+        ShowEyeSpecificInstruction("CALIBRATION 1/3: Hand Controls\n\n" +
+                                   GetHandControlInstructions() + "\n" +
+                                   "'B' button = Clear all\n\n" +
+                                   "Each pinch creates a new trace.\n" +
                                    "Try drawing and erasing.\n\n" +
-                                   "Press 'A' when ready to continue.", 1);
+                                   "Press 'A' when ready.", 1);
 
         if (handTracer != null)
         {
@@ -221,12 +267,9 @@ public class HandTrackingExperimentManager : MonoBehaviour
         }
 
         ShowEyeSpecificInstruction("CALIBRATION 2/3: Motor Test\n\n" +
-                                   "You will see a wireframe cube.\n\n" +
-                                   "Practice tracing along the highlighted edges.\n\n" +
-                                   "RIGHT hand: Pinch and hold to trace\n" +
-                                   "LEFT hand: Hover to erase\n" +
-                                   "'B' button: Clear all traces\n\n" +
-                                   "This tests hand tracking accuracy.\n\n" +
+                                   "Trace the highlighted edges of the cube.\n\n" +
+                                   GetHandControlInstructions() + "\n" +
+                                   "'B' button: Clear all\n\n" +
                                    "Press 'A' to continue.", 1);
 
         yield return new WaitForSeconds(0.5f);
@@ -245,9 +288,8 @@ public class HandTrackingExperimentManager : MonoBehaviour
                 handTracer.EnableTracing(true);
 
                 ShowEyeSpecificInstruction($"Trace the YELLOW edge.\n\n" +
-                                           "RIGHT hand: Pinch and hold to trace\n" +
-                                           "LEFT hand: Hover to erase\n\n" +
-                                           "'B' to clear, 'A' when done.", 1);
+                                           GetHandControlInstructions() + "\n\n" +
+                                           "'B' to clear | 'A' when done.", 1);
 
                 yield return new WaitForSeconds(0.5f);
 
@@ -281,46 +323,73 @@ public class HandTrackingExperimentManager : MonoBehaviour
             handTracer.EnableTracing(false);
         }
 
-        // Phase 3: Depth perception with 2D rotating (right) and 3D reference (left)
+        // Stage 3: Stereokinetic depth perception (matching DepthOnly pattern)
         currentState = ExperimentState.CalibrationStage3;
 
-        // Set up 2D rotating trefoil on the right (monocular - right eye only)
-        if (rotatingReference != null)
+        // Part 1: Show rotating trefoil
+        if (stimulusTrefoil != null)
         {
-            rotatingReference.SetParameters(1.0f, 1.5f, 90f, 1);
-            rotatingReference.SetShaderType(TrefoilGenerator.ShaderType.RightEyeOnly);
-            rotatingReference.ResumeRotation();
-            rotatingReference.SetVisibility(true);
-        }
-
-        // Set up 3D reference trefoil on the left (binocular)
-        if (frozenStimulus != null)
-        {
-            frozenStimulus.SetParameters(1.0f, 1.5f, 90f, 1);
-            frozenStimulus.SetShaderType(TrefoilGenerator.ShaderType.Binocular);
-            frozenStimulus.ResumeRotation();
-            frozenStimulus.SetVisibility(true);
+            stimulusTrefoil.SetParameters(1.0f, 1.5f, 60f, 1);
+            stimulusTrefoil.SetShaderType(TrefoilGenerator.ShaderType.RightEyeOnly);
+            stimulusTrefoil.ResumeRotation();
+            stimulusTrefoil.SetVisibility(true);
         }
 
         ShowEyeSpecificInstruction("CALIBRATION 3/3: Depth Perception\n\n" +
-                                   "LEFT: 3D reference (both eyes)\n" +
-                                   "RIGHT: 2D rotating curve (one eye)\n\n" +
-                                   "The flat curve on the right should appear\n" +
-                                   "to pop out in depth, similar to the 3D model.\n\n" +
-                                   "Press 'A' to confirm you see the 3D effect.", 0);
+                                 "Stare at the rotating curve until you perceive something interesting.\n\n" +
+                                 "Press 'A' when ready to continue.", 0);
 
         yield return new WaitForSeconds(0.5f);
         yield return new WaitUntil(() => GetButtonDown());
         yield return new WaitForSeconds(0.3f);
 
-        if (rotatingReference != null)
+        if (stimulusTrefoil != null)
         {
-            rotatingReference.SetVisibility(false);
+            stimulusTrefoil.SetVisibility(false);
         }
 
-        if (frozenStimulus != null)
+        // Part 2: Show 3D model for manual exploration
+        ShowEyeSpecificInstruction("This is one possible 3D interpretation of the 2D stimulus you saw.\n" +
+                                   "It is the general shape that you should be able to perceive.\n\n" +
+                                   "Use the joystick left/right to rotate and explore.\n\n" +
+                                   "Press 'A' when you are ready to continue.", 1);
+
+        if (calibrationModel != null)
         {
-            frozenStimulus.SetVisibility(false);
+            // Random depth in range [0.5, 1.0] for exploration
+            float randomDepth = Random.Range(0.5f, 1.0f);
+            calibrationModel.ResetParameters(1.0f, 1.5f, 0f, randomDepth);
+            calibrationModel.SetManualRotationMode(true);  // Enable manual rotation with joystick
+            calibrationModel.SetVisibility(true);
+        }
+
+        yield return new WaitForSeconds(0.5f);
+        yield return new WaitUntil(() => GetButtonDown());
+        yield return new WaitForSeconds(0.3f);
+
+        if (calibrationModel != null)
+        {
+            calibrationModel.SetVisibility(false);
+            calibrationModel.SetManualRotationMode(false);
+        }
+
+        // Part 3: Show rotating trefoil again
+        ShowEyeSpecificInstruction("Now look at the rotating curve again.\n\n" +
+                                 "Can you perceive a 3D shape?\n\n" +
+                                 "Press 'A' when ready to begin the study.", 0);
+
+        if (stimulusTrefoil != null)
+        {
+            stimulusTrefoil.SetVisibility(true);
+        }
+
+        yield return new WaitForSeconds(0.5f);
+        yield return new WaitUntil(() => GetButtonDown());
+        yield return new WaitForSeconds(0.3f);
+
+        if (stimulusTrefoil != null)
+        {
+            stimulusTrefoil.SetVisibility(false);
         }
 
         HideEyeSpecificInstructions();
@@ -329,17 +398,15 @@ public class HandTrackingExperimentManager : MonoBehaviour
     IEnumerator PracticePhase()
     {
         currentState = ExperimentState.PracticeIntro;
-        ShowInstruction("PRACTICE - Hand Tracing Task\n\n" +
-                        "You will see two rotating curves side by side.\n\n" +
+        ShowInstruction("PRACTICE TRIALS\n\n" +
+                        "Task: Trace the 3D shape you perceive.\n\n" +
+                        "Two curves will rotate side by side.\n" +
+                        "Press 'A' to freeze one for tracing.\n" +
+                        "The other keeps rotating.\n\n" +
                         "CONTROLS:\n" +
-                        "• 'A' button = Freeze curve when ready\n" +
-                        "• RIGHT hand: Pinch & hold = Draw trace\n" +
-                        "• LEFT hand: Hover = Erase\n" +
-                        "• 'B' button = Clear all traces\n" +
-                        "• 'A' button = Submit traces\n\n" +
-                        "Each pinch creates a separate trace.\n" +
-                        "One curve will freeze for tracing.\n" +
-                        "The other keeps rotating to maintain the 3D effect.\n\n" +
+                        "• " + GetHandControlInstructions().Replace("\n", "\n• ") + "\n" +
+                        "• 'B' button = Clear all\n" +
+                        "• 'A' button = Submit\n\n" +
                         "Press 'A' to start practice.");
 
         yield return new WaitForSeconds(0.5f);
@@ -363,12 +430,10 @@ public class HandTrackingExperimentManager : MonoBehaviour
     {
         currentState = ExperimentState.MainIntro;
         ShowInstruction("Practice complete!\n\n" +
-                       "The main experiment has 20 trials.\n\n" +
                        "CONTROLS:\n" +
+                       "• " + GetHandControlInstructions().Replace("\n", "\n• ") + "\n" +
                        "• 'A' = Freeze / Submit\n" +
-                       "• RIGHT hand: Pinch & hold = Draw\n" +
-                       "• LEFT hand: Hover = Erase\n" +
-                       "• 'B' = Clear all traces\n\n" +
+                       "• 'B' = Clear all\n\n" +
                        "Press 'A' to begin.");
 
         yield return new WaitForSeconds(0.5f);
@@ -403,31 +468,39 @@ public class HandTrackingExperimentManager : MonoBehaviour
     {
         currentState = ExperimentState.End;
         SaveData();
-        ShowInstruction("Experiment Complete!\n\n" +
-                       "Thank you for your participation.\n\n");
+        ShowInstruction("Complete!\n\n" +
+                       "Thank you for participating.\n\n");
         yield return new WaitForSeconds(3f);
     }
 
     IEnumerator RunHandTracingTrial(HandTrackingTrial trial, bool practice)
     {
-        ShowExplainText("Watch the rotating curves.\n\nPress 'A' when ready to freeze and trace.");
+        ShowExplainText("Watch the curves.\n\nPress 'A' to freeze and trace.");
 
-        // Set up both trefoils to rotate together initially
-        if (frozenStimulus != null)
+        // Determine which trefoil should be on which side based on handedness
+        // Right-handed: rotating (monocular) on left, drawing area (binocular) on right
+        // Left-handed: drawing area (binocular) on left, rotating (monocular) on right
+        bool isRightHanded = HandednessManager.Instance.IsRightHanded();
+
+        TrefoilGenerator drawingArea = isRightHanded ? frozenStimulus : rotatingReference;
+        TrefoilGenerator rotatingDisplay = isRightHanded ? rotatingReference : frozenStimulus;
+
+        // Set up the drawing area (binocular, will be frozen for tracing)
+        if (drawingArea != null)
         {
-            frozenStimulus.SetParameters(trial.R1, trial.R2, trial.rotationSpeed, trial.direction);
-            frozenStimulus.SetShaderType(TrefoilGenerator.ShaderType.Binocular); // Binocular for tracing
-            frozenStimulus.ResumeRotation();
-            frozenStimulus.SetVisibility(true);
+            drawingArea.SetParameters(trial.R1, trial.R2, trial.rotationSpeed, trial.direction);
+            drawingArea.SetShaderType(TrefoilGenerator.ShaderType.Binocular); // Binocular for tracing
+            drawingArea.ResumeRotation();
+            drawingArea.SetVisibility(true);
         }
 
-        // Set up rotating reference
-        if (rotatingReference != null)
+        // Set up rotating display (monocular, keeps rotating)
+        if (rotatingDisplay != null)
         {
-            rotatingReference.SetParameters(trial.R1, trial.R2, trial.rotationSpeed, trial.direction);
-            rotatingReference.SetShaderType(TrefoilGenerator.ShaderType.RightEyeOnly); // Monocular for stereokinetic effect
-            rotatingReference.ResumeRotation();
-            rotatingReference.SetVisibility(true);
+            rotatingDisplay.SetParameters(trial.R1, trial.R2, trial.rotationSpeed, trial.direction);
+            rotatingDisplay.SetShaderType(TrefoilGenerator.ShaderType.RightEyeOnly); // Monocular for stereokinetic effect
+            rotatingDisplay.ResumeRotation();
+            rotatingDisplay.SetVisibility(true);
         }
 
         if (handTracer != null)
@@ -447,11 +520,11 @@ public class HandTrackingExperimentManager : MonoBehaviour
         {
             if (GetButtonDown())
             {
-                // Freeze the frozen stimulus
-                if (frozenStimulus != null)
+                // Freeze the drawing area trefoil
+                if (drawingArea != null)
                 {
-                    freezeAngle = frozenStimulus.GetCurrentAngle();
-                    frozenStimulus.PauseRotation();
+                    freezeAngle = drawingArea.GetCurrentAngle();
+                    drawingArea.PauseRotation();
                 }
 
                 waitingForFreeze = false;
@@ -462,7 +535,9 @@ public class HandTrackingExperimentManager : MonoBehaviour
                     handTracer.EnableTracing(true);
                 }
 
-                ShowExplainText("Trace the 3D shape you perceive.\n\nRIGHT hand: Pinch and hold to draw\nLEFT hand: Hover to erase\n'B' button: Clear all traces\n\nPress 'A' to submit.");
+                ShowExplainText("Trace the 3D shape you perceive.\n\n" +
+                               GetHandControlInstructions() + "\n" +
+                               "'B' = Clear all\n\nPress 'A' to submit.");
             }
 
             yield return null;
@@ -508,14 +583,14 @@ public class HandTrackingExperimentManager : MonoBehaviour
         List<Vector3> tracedPointsWorld = handTracer != null ? handTracer.GetTracedPoints() : new List<Vector3>();
         List<Vector2> trefoilSpacePoints = handTracer != null ? handTracer.GetTracedPointsInTrefoilSpace() : new List<Vector2>();
 
-        if (frozenStimulus != null)
+        if (drawingArea != null)
         {
-            frozenStimulus.SetVisibility(false);
+            drawingArea.SetVisibility(false);
         }
 
-        if (rotatingReference != null)
+        if (rotatingDisplay != null)
         {
-            rotatingReference.SetVisibility(false);
+            rotatingDisplay.SetVisibility(false);
         }
 
         if (handTracer != null)
@@ -529,8 +604,9 @@ public class HandTrackingExperimentManager : MonoBehaviour
 
         if (!practice)
         {
+            string handedness = HandednessManager.Instance.IsRightHanded() ? "Right" : "Left";
             allRecords.Add(new HandTrackingRecord(currentTrialIndex, trial, tracedPointsWorld, trefoilSpacePoints,
-                                                   freezeAngle, tracingDuration));
+                                                   freezeAngle, tracingDuration, handedness));
         }
 
         yield return new WaitForSeconds(1f);
@@ -590,20 +666,36 @@ public class HandTrackingExperimentManager : MonoBehaviour
         }
     }
 
+    // Helper method to get hand-specific control instructions
+    string GetHandControlInstructions()
+    {
+        bool isRightHanded = HandednessManager.Instance.IsRightHanded();
+
+        if (isRightHanded)
+        {
+            return "RIGHT hand: Pinch & hold = Draw\nLEFT hand: Hover finger = Erase";
+        }
+        else
+        {
+            return "LEFT hand: Pinch & hold = Draw\nRIGHT hand: Hover finger = Erase";
+        }
+    }
+
     void SaveData()
     {
         string timestamp = System.DateTime.Now.ToString("yyyyMMdd_HHmmss");
-        string filename = $"Trefoil_HandTracking_Experiment_{timestamp}.csv";
+        string handedness = HandednessManager.Instance.IsRightHanded() ? "RH" : "LH";
+        string filename = $"Trefoil_HandTracking_{handedness}_Experiment_{timestamp}.csv";
         string path = Path.Combine(Application.persistentDataPath, filename);
 
         StringBuilder csv = new StringBuilder();
-        csv.AppendLine("TrialNumber,ConfigurationId,RepetitionNumber,R1,R2,RotationSpeed,Direction,FreezeAngle,NumTracePoints,TracingDuration,Timestamp,TracedPointsWorldJSON,TrefoilSpacePointsJSON");
+        csv.AppendLine("TrialNumber,ConfigurationId,RepetitionNumber,Handedness,R1,R2,RotationSpeed,Direction,FreezeAngle,NumTracePoints,TracingDuration,Timestamp,TracedPointsWorldJSON,TrefoilSpacePointsJSON");
 
         foreach (var record in allRecords)
         {
             string worldPointsJson = JsonUtility.ToJson(new SerializableVector3List(record.tracedPointsWorld));
             string trefoilPointsJson = JsonUtility.ToJson(new SerializableVector2List(record.trefoilSpacePoints));
-            csv.AppendLine($"{record.trialNumber},{record.configurationId},{record.repetitionNumber},{record.R1},{record.R2},{record.rotationSpeed},{record.direction},{record.freezeAngle},{record.numTracePoints},{record.tracingDuration},{record.timestamp},\"{worldPointsJson}\",\"{trefoilPointsJson}\"");
+            csv.AppendLine($"{record.trialNumber},{record.configurationId},{record.repetitionNumber},{record.handedness},{record.R1},{record.R2},{record.rotationSpeed},{record.direction},{record.freezeAngle},{record.numTracePoints},{record.tracingDuration},{record.timestamp},\"{worldPointsJson}\",\"{trefoilPointsJson}\"");
         }
 
         File.WriteAllText(path, csv.ToString());
@@ -617,6 +709,7 @@ public class HandTrackingRecord
     public int trialNumber;
     public int configurationId;
     public int repetitionNumber;
+    public string handedness;
     public float R1;
     public float R2;
     public float rotationSpeed;
@@ -629,11 +722,12 @@ public class HandTrackingRecord
     public List<Vector2> trefoilSpacePoints;
 
     public HandTrackingRecord(int num, HandTrackingTrial trial, List<Vector3> tracedWorld, List<Vector2> trefoilPoints,
-                              float freeze, float duration)
+                              float freeze, float duration, string hand)
     {
         trialNumber = num;
         configurationId = trial.configurationId;
         repetitionNumber = trial.repetitionNumber;
+        handedness = hand;
         R1 = trial.R1;
         R2 = trial.R2;
         rotationSpeed = trial.rotationSpeed;

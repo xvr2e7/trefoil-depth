@@ -84,11 +84,21 @@ public class HandTrackingTracer : MonoBehaviour
         XRHand rightHand = handSubsystem.rightHand;
         XRHand leftHand = handSubsystem.leftHand;
 
-        // Process right hand for drawing
-        ProcessDrawingHand(rightHand, ref isRightTracing, ref isRightRecording, ref lastRightPinchState, ref rightPinchStartTime);
+        // Swap hand roles based on handedness
+        bool isRightHanded = HandednessManager.Instance.IsRightHanded();
 
-        // Process left hand for erasing
-        ProcessErasingHand(leftHand);
+        if (isRightHanded)
+        {
+            // Right-handed: Right hand draws, left hand erases
+            ProcessDrawingHand(rightHand, ref isRightTracing, ref isRightRecording, ref lastRightPinchState, ref rightPinchStartTime);
+            ProcessErasingHand(leftHand);
+        }
+        else
+        {
+            // Left-handed: Left hand draws, right hand erases
+            ProcessDrawingHand(leftHand, ref isLeftTracing, ref isLeftRecording, ref lastLeftPinchState, ref leftPinchStartTime);
+            ProcessErasingHand(rightHand);
+        }
     }
 
     void ProcessDrawingHand(XRHand hand, ref bool isTracing, ref bool isRecording, ref bool lastPinchState, ref float pinchStartTime)
@@ -105,14 +115,14 @@ public class HandTrackingTracer : MonoBehaviour
             pinchStartTime = Time.time;
             isTracing = true;
             isRecording = false;
-            Debug.Log("Right hand: Pinch started, preparing new trace");
+            Debug.Log("Drawing hand: Pinch started, preparing new trace");
         }
         else if (!isPinching && lastPinchState)
         {
             // Pinch fully released - finalize the current trace
             if (isRecording && currentTrace != null && currentTrace.Count > 0)
             {
-                Debug.Log($"Right hand: Pinch released, finalizing trace with {currentTrace.Count} points");
+                Debug.Log($"Drawing hand: Pinch released, finalizing trace with {currentTrace.Count} points");
                 // Finalize current trace (it's already in allTraces, just stop recording)
             }
             isTracing = false;
@@ -127,7 +137,7 @@ public class HandTrackingTracer : MonoBehaviour
             // Check if fingers are separating (releasing) - stop recording early
             if (isRecording && isReleasing)
             {
-                Debug.Log("Right hand: Pinch releasing detected - stopping recording early");
+                Debug.Log("Drawing hand: Pinch releasing detected - stopping recording early");
                 isRecording = false;
                 // Finalize trace but keep isTracing true so we don't restart
             }
@@ -159,7 +169,7 @@ public class HandTrackingTracer : MonoBehaviour
                     allLineRenderers.Add(newLineRenderer);
                 }
 
-                Debug.Log($"Right hand: Starting new trace #{allTraces.Count}");
+                Debug.Log($"Drawing hand: Starting new trace #{allTraces.Count}");
 
                 Vector3 startPoint = GetIndexTipPosition(hand);
                 lastTracedPoint = startPoint;
@@ -223,7 +233,7 @@ public class HandTrackingTracer : MonoBehaviour
                     allLineRenderers.RemoveAt(traceIdx);
                 }
 
-                Debug.Log("Left hand: Erased entire trace");
+                Debug.Log("Erasing hand: Erased entire trace");
             }
         }
 
