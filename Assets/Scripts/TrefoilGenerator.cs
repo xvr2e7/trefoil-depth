@@ -15,6 +15,11 @@ public class TrefoilGenerator : MonoBehaviour
     // Rotation direction: 1=CCW, -1=CW
     public int direction = 1;
 
+    public enum ShaderType { Binocular, RightEyeOnly }
+
+    [Header("Rendering")]
+    public ShaderType shaderType = ShaderType.RightEyeOnly;
+
     private Mesh mesh;
     private Vector3[] pathPoints;
     private MeshRenderer meshRenderer;
@@ -24,15 +29,28 @@ public class TrefoilGenerator : MonoBehaviour
     void Start()
     {
         meshRenderer = GetComponent<MeshRenderer>();
-        Material mat = new Material(Shader.Find("Custom/RightEyeOnly"));
-        mat.color = Color.black;
-        meshRenderer.material = mat;
+        SetupMaterial();
 
         mesh = new Mesh();
         GetComponent<MeshFilter>().mesh = mesh;
 
         GeneratePath();
         GenerateRibbonMesh();
+    }
+
+    void SetupMaterial()
+    {
+        Material mat;
+        if (shaderType == ShaderType.RightEyeOnly)
+        {
+            mat = new Material(Shader.Find("Custom/RightEyeOnly"));
+        }
+        else
+        {
+            mat = new Material(Shader.Find("Standard"));
+        }
+        mat.color = Color.white;
+        meshRenderer.material = mat;
     }
 
     void Update()
@@ -158,5 +176,11 @@ public class TrefoilGenerator : MonoBehaviour
     public void SetColor(Color color)
     {
         meshRenderer.material.color = color;
+    }
+
+    public void SetShaderType(ShaderType type)
+    {
+        shaderType = type;
+        SetupMaterial();
     }
 }
