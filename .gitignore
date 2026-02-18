@@ -7,6 +7,14 @@
 [Ll]ogs/
 [Uu]ser[Ss]ettings/
 
+# Specific Library subfolders that cause compilation hangs
+Library/Bee/
+Library/ScriptAssemblies/
+Library/ArtifactDB
+Library/ArtifactDB-lock
+Library/StateCache/
+Library/metadata/
+
 # Unity cache and temp files
 *.pidb
 *.booproj
@@ -89,3 +97,11 @@ OVRPlatform/
 
 # UserSettings folder
 UserSettings/
+.fake
+
+# Oculus/Meta XR build configs (auto-generated on each build)
+Assets/Resources/OVRBuildConfig*.asset
+Assets/Resources/OVRBuildConfig*.asset.meta
+
+# Anaconda project files
+anaconda_projects/
