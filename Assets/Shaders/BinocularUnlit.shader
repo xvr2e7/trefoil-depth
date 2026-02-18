@@ -1,4 +1,4 @@
-Shader "Custom/RightEyeOnly"
+Shader "Custom/BinocularUnlit"
 {
     Properties
     {
@@ -44,11 +44,7 @@ Shader "Custom/RightEyeOnly"
             {
                 UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
 
-                if (unity_StereoEyeIndex == 0)
-                {
-                    discard;
-                }
-
+                // Visible to both eyes (no discard)
                 return fixed4(_Color.rgb * _Brightness, _Color.a);
             }
             ENDCG
