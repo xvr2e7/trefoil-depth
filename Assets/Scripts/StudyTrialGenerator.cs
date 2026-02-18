@@ -9,13 +9,17 @@ public class DepthTrial
     public float R2;
     public float rotationSpeed;
     public int direction;
+    public float startingAmplitude;
+    public int configID; // Configuration ID for grouping trials
 
-    public DepthTrial(float r1, float r2, float speed, int dir)
+    public DepthTrial(float r1, float r2, float speed, int dir, float startAmp = 0f, int configId = -1)
     {
         R1 = r1;
         R2 = r2;
         rotationSpeed = speed;
         direction = dir;
+        startingAmplitude = startAmp;
+        configID = configId;
     }
 }
 

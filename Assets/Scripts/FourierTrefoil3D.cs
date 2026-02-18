@@ -23,12 +23,15 @@ public class FourierTrefoil3D : MonoBehaviour
     public bool rotationMode = false;
     public float rotationSpeed = 30f;
     public bool adjustmentEnabled = true;
+    public bool autoRotate = false;  // For automatic rotation during confirmation (Z-axis)
+    public bool manualRotationMode = false;  // For manual exploration rotation (Y-axis)
 
     private Mesh mesh;
     private float[] phiValues;  // φ values from CSV
     private float[] zBaseValues;  // z_base values from CSV (Fourier-optimized)
     private MeshRenderer meshRenderer;
-    private float currentRotation = 0f;
+    private float currentRotationY = 0f;  // For Y-axis rotation (manual exploration)
+    private float currentRotationZ = 0f;  // For Z-axis rotation (automatic confirmation)
     private InputDevice rightHandDevice;
 
     void Start()
@@ -42,16 +45,37 @@ public class FourierTrefoil3D : MonoBehaviour
         GetComponent<MeshFilter>().mesh = mesh;
 
         InitializeInputDevice();
-        LoadCoordinatesFromCSV();
+        // LoadCoordinatesFromCSV will be called when ResetParameters is called
 
         adjustmentEnabled = false;
         meshRenderer.enabled = false;
-        GenerateTubeMesh();
     }
 
-    void LoadCoordinatesFromCSV()
+    void LoadCoordinatesFromCSV(float r2)
     {
-        TextAsset csvFile = Resources.Load<TextAsset>("coords_final");
+        // Determine which CSV file to load based on R2 value
+        string csvFileName;
+        if (Mathf.Abs(r2 - 1.5f) < 0.01f)
+        {
+            csvFileName = "coords_R2_1.5";
+        }
+        else if (Mathf.Abs(r2 - 2.0f) < 0.01f)
+        {
+            csvFileName = "coords_R2_2.0";
+        }
+        else
+        {
+            Debug.LogWarning($"No optimal profile found for R2={r2}, using R2=1.5 as default");
+            csvFileName = "coords_R2_1.5";
+        }
+
+        TextAsset csvFile = Resources.Load<TextAsset>(csvFileName);
+        if (csvFile == null)
+        {
+            Debug.LogError($"Could not load CSV file: {csvFileName}");
+            return;
+        }
+
         string[] lines = csvFile.text.Split('\n');
 
         int count = 0;
@@ -77,6 +101,8 @@ public class FourierTrefoil3D : MonoBehaviour
             zBaseValues[idx] = z;
             idx++;
         }
+
+        Debug.Log($"Loaded {idx} coordinates from {csvFileName} for R2={r2}");
     }
 
     void InitializeInputDevice()
@@ -96,26 +122,34 @@ public class FourierTrefoil3D : MonoBehaviour
             InitializeInputDevice();
         }
 
+        // Handle automatic rotation around Z-axis (for confirmation stage - matches 2D stimulus rotation)
+        if (autoRotate)
+        {
+            currentRotationZ += rotationSpeed * Time.deltaTime;
+            transform.localRotation = Quaternion.Euler(0, 0, currentRotationZ);
+            return;
+        }
+
+        // Handle manual rotation around Y-axis (for exploration in calibration phase)
+        if (manualRotationMode && rightHandDevice.TryGetFeatureValue(CommonUsages.primary2DAxis, out Vector2 joystick))
+        {
+            currentRotationY += joystick.x * rotationSpeed * Time.deltaTime;
+            transform.localRotation = Quaternion.Euler(0, currentRotationY, 0);
+            return;
+        }
+
         if (!adjustmentEnabled)
             return;
 
-        if (rightHandDevice.TryGetFeatureValue(CommonUsages.primary2DAxis, out Vector2 joystick))
+        if (rightHandDevice.TryGetFeatureValue(CommonUsages.primary2DAxis, out Vector2 joystickInput))
         {
-            if (rotationMode)
-            {
-                currentRotation += joystick.x * rotationSpeed * Time.deltaTime;
-                transform.localRotation = Quaternion.Euler(0, currentRotation, 0);
-            }
-            else
-            {
-                float oldAmplitude = amplitude;
-                amplitude += joystick.y * amplitudeSpeed * Time.deltaTime;
-                amplitude = Mathf.Clamp(amplitude, minAmplitude, maxAmplitude);
+            float oldAmplitude = amplitude;
+            amplitude += joystickInput.y * amplitudeSpeed * Time.deltaTime;
+            amplitude = Mathf.Clamp(amplitude, minAmplitude, maxAmplitude);
 
-                if (Mathf.Abs(amplitude - oldAmplitude) > 0.001f)
-                {
-                    GenerateTubeMesh();
-                }
+            if (Mathf.Abs(amplitude - oldAmplitude) > 0.001f)
+            {
+                GenerateTubeMesh();
             }
         }
     }
@@ -199,25 +233,58 @@ public class FourierTrefoil3D : MonoBehaviour
         mesh.RecalculateBounds();
     }
 
-    public void ResetParameters(float r1, float r2, float phase)
+    public void ResetParameters(float r1, float r2, float phase, float startingAmplitude = 0f)
     {
         R1 = r1;
         R2 = r2;
-        amplitude = 0f;
-        currentRotation = 0f;
+        amplitude = startingAmplitude;
+        currentRotationY = 0f;
+        currentRotationZ = 0f;
         transform.localRotation = Quaternion.identity;
+
+        // Load the optimal profile for this R2 value
+        LoadCoordinatesFromCSV(r2);
+
         GenerateTubeMesh();
         adjustmentEnabled = true;
     }
 
-    public void SetRotationMode(bool enable)
+    public void SetRotationMode(bool enable, float speed = 60f)
     {
-        rotationMode = enable;
-        adjustmentEnabled = enable;
         if (enable)
         {
-            amplitude = 1f;
+            // Enable automatic rotation mode around Z-axis (matches 2D stimulus)
+            autoRotate = true;
+            manualRotationMode = false;
+            adjustmentEnabled = false;
+            rotationSpeed = speed;  // Set rotation speed to match stimulus
+            // Don't reset currentRotationZ - start from current orientation
+            // Don't change amplitude - keep the adjusted value
             GenerateTubeMesh();
+        }
+        else
+        {
+            // Disable rotation mode
+            autoRotate = false;
+            adjustmentEnabled = true;
+        }
+    }
+
+    public void SetManualRotationMode(bool enable)
+    {
+        if (enable)
+        {
+            // Enable manual rotation mode around Y-axis (for exploration)
+            manualRotationMode = true;
+            autoRotate = false;
+            adjustmentEnabled = false;
+            currentRotationY = 0f;  // Reset Y rotation
+        }
+        else
+        {
+            // Disable manual rotation mode
+            manualRotationMode = false;
+            adjustmentEnabled = true;
         }
     }
 
