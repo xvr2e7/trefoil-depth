@@ -22,6 +22,7 @@ public class FourierTrefoil3D : MonoBehaviour
     [Header("Calibration")]
     public bool rotationMode = false;
     public float rotationSpeed = 30f;
+    public int rotationDirection = 1;  // 1=CCW, -1=CW
     public bool adjustmentEnabled = true;
     public bool autoRotate = false;  // For automatic rotation during confirmation (Z-axis)
     public bool manualRotationMode = false;  // For manual exploration rotation (Y-axis)
@@ -125,7 +126,7 @@ public class FourierTrefoil3D : MonoBehaviour
         // Handle automatic rotation around Z-axis (for confirmation stage - matches 2D stimulus rotation)
         if (autoRotate)
         {
-            currentRotationZ += rotationSpeed * Time.deltaTime;
+            currentRotationZ += rotationSpeed * Time.deltaTime * rotationDirection;
             transform.localRotation = Quaternion.Euler(0, 0, currentRotationZ);
             return;
         }
@@ -249,7 +250,7 @@ public class FourierTrefoil3D : MonoBehaviour
         adjustmentEnabled = true;
     }
 
-    public void SetRotationMode(bool enable, float speed = 60f)
+    public void SetRotationMode(bool enable, float speed = 60f, int direction = 1)
     {
         if (enable)
         {
@@ -258,6 +259,7 @@ public class FourierTrefoil3D : MonoBehaviour
             manualRotationMode = false;
             adjustmentEnabled = false;
             rotationSpeed = speed;  // Set rotation speed to match stimulus
+            rotationDirection = direction;  // Set rotation direction to match stimulus
             // Don't reset currentRotationZ - start from current orientation
             // Don't change amplitude - keep the adjusted value
             GenerateTubeMesh();

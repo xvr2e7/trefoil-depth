@@ -456,12 +456,12 @@ public class DepthOnlyExperimentManager : MonoBehaviour
                 stimulusTrefoil.SetVisibility(false);
             }
 
-            // Show 3D model rotating (match stimulus rotation speed)
+            // Show 3D model rotating (match stimulus rotation speed and direction)
             if (adjustableModel != null)
             {
                 adjustableModel.SetVisibility(true);
                 adjustableModel.SetAdjustmentEnabled(false);
-                adjustableModel.SetRotationMode(true, trial.rotationSpeed);  // Match stimulus speed
+                adjustableModel.SetRotationMode(true, trial.rotationSpeed, trial.direction);  // Match stimulus speed and direction
             }
 
             // Update instruction text
