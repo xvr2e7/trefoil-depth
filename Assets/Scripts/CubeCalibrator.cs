@@ -9,7 +9,7 @@ public class CubeCalibrator : MonoBehaviour
 {
     [Header("Cube Parameters")]
     public float edgeLength = 0.3f; // 30cm cube
-    public Color cubeColor = Color.white;
+    public Color cubeColor = Color.black;
     public float lineWidth = 0.005f;
 
     [Header("Edge Highlighting")]

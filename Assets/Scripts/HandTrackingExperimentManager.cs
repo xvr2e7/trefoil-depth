@@ -452,15 +452,6 @@ public class HandTrackingExperimentManager : MonoBehaviour
         {
             yield return StartCoroutine(RunHandTracingTrial(mainTrials[i], false));
             currentTrialIndex++;
-
-            // Show progress every 5 trials
-            if ((i + 1) % 5 == 0 && (i + 1) < mainTrials.Count)
-            {
-                ShowInstruction($"Progress: {i + 1}/{mainTrials.Count} complete.\n\nPress 'A' to continue.");
-                yield return new WaitForSeconds(0.5f);
-                yield return new WaitUntil(() => GetButtonDown());
-                yield return new WaitForSeconds(0.5f);
-            }
         }
     }
 
