@@ -52,6 +52,10 @@ public class WireframeSphere : MonoBehaviour
         {
             // Use standard shader for binocular viewing (debugging mode)
             mat = new Material(Shader.Find("Standard"));
+            // Make see-through: disable z-writing and cull no faces so back bars show through
+            mat.SetInt("_ZWrite", 0);
+            mat.SetInt("_Cull", (int)UnityEngine.Rendering.CullMode.Off);
+            mat.renderQueue = 3000;
         }
         else
         {
@@ -64,7 +68,7 @@ public class WireframeSphere : MonoBehaviour
 
     void Update()
     {
-        // Continuous rotation around Z-axis (in-plane) when enabled, matching 2D trefoil rotation
+        // Continuous rotation around Y-axis when enabled
         if (isRotating)
         {
             currentRotationAngle += rotationSpeed * Time.deltaTime;
@@ -72,7 +76,7 @@ public class WireframeSphere : MonoBehaviour
             {
                 currentRotationAngle -= 360f;
             }
-            transform.localRotation = Quaternion.Euler(0f, 0f, currentRotationAngle);
+            transform.localRotation = Quaternion.Euler(0f, currentRotationAngle, 0f);
         }
     }
 
@@ -81,24 +85,7 @@ public class WireframeSphere : MonoBehaviour
         System.Collections.Generic.List<Vector3> vertices = new System.Collections.Generic.List<Vector3>();
         System.Collections.Generic.List<int> triangles = new System.Collections.Generic.List<int>();
 
-        // Generate latitude circles (horizontal rings around the sphere)
-        for (int lat = 1; lat < latitudeSegments; lat++)
-        {
-            float theta = (lat / (float)latitudeSegments) * Mathf.PI;
-
-            for (int lon = 0; lon < longitudeSegments; lon++)
-            {
-                float phi = (lon / (float)longitudeSegments) * 2 * Mathf.PI;
-                float nextPhi = ((lon + 1) / (float)longitudeSegments) * 2 * Mathf.PI;
-
-                Vector3 p1 = SphericalToCartesian(radius, theta, phi);
-                Vector3 p2 = SphericalToCartesian(radius, theta, nextPhi);
-
-                AddTube(vertices, triangles, p1, p2, lineWidth);
-            }
-        }
-
-        // Generate longitude circles (meridians from pole to pole)
+        // Generate longitude lines only (vertical bars from pole to pole)
         for (int lon = 0; lon < longitudeSegments; lon++)
         {
             float phi = (lon / (float)longitudeSegments) * 2 * Mathf.PI;
@@ -124,12 +111,10 @@ public class WireframeSphere : MonoBehaviour
 
     Vector3 SphericalToCartesian(float r, float theta, float phi)
     {
-        // Generate 2D projection (orthographic projection from front view)
-        // Project sphere onto XY plane (z=0), as if viewing from +Z direction
-        // This creates a flat circle that represents the perceived depth through size
+        // True 3D sphere coordinates for Y-axis rotation
         float x = r * Mathf.Sin(theta) * Mathf.Cos(phi);
         float y = r * Mathf.Cos(theta);
-        float z = 0f;  // Flatten to z=0 for true 2D projection
+        float z = r * Mathf.Sin(theta) * Mathf.Sin(phi);
         return new Vector3(x, y, z);
     }
 

@@ -156,9 +156,9 @@ MonoBehaviour:
   radius: 0.15
   depth: 1
   trefoilBaseZExtent: 7.068497
-  latitudeSegments: 24
-  longitudeSegments: 36
-  lineWidth: 0.025
+  latitudeSegments: 32
+  longitudeSegments: 24
+  lineWidth: 0.015
   tubeSegments: 6
   rotationSpeed: 60
   useBinocularView: 1
@@ -460,7 +460,10 @@ MonoBehaviour:
   maxAmplitude: 5
   rotationMode: 0
   rotationSpeed: 30
+  rotationDirection: 1
   adjustmentEnabled: 1
+  autoRotate: 0
+  manualRotationMode: 0
 --- !u!1 &794011538
 GameObject:
   m_ObjectHideFlags: 0
@@ -1093,7 +1096,10 @@ MonoBehaviour:
   maxAmplitude: 5
   rotationMode: 0
   rotationSpeed: 30
+  rotationDirection: 1
   adjustmentEnabled: 1
+  autoRotate: 0
+  manualRotationMode: 0
 --- !u!23 &1187541558
 MeshRenderer:
   m_ObjectHideFlags: 0
