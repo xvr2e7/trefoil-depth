@@ -49,7 +49,7 @@ public class TrefoilGenerator : MonoBehaviour
         {
             mat = new Material(Shader.Find("Custom/BinocularUnlit"));
         }
-        mat.color = Color.white;
+        mat.color = Color.black;
         meshRenderer.material = mat;
     }
 

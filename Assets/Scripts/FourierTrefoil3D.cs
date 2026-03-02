@@ -123,11 +123,11 @@ public class FourierTrefoil3D : MonoBehaviour
             InitializeInputDevice();
         }
 
-        // Handle automatic rotation around Z-axis (for confirmation stage - matches 2D stimulus rotation)
+        // Handle automatic rotation around Y-axis (for confirmation/preview stage)
         if (autoRotate)
         {
             currentRotationZ += rotationSpeed * Time.deltaTime * rotationDirection;
-            transform.localRotation = Quaternion.Euler(0, 0, currentRotationZ);
+            transform.localRotation = Quaternion.Euler(0, currentRotationZ, 0);
             return;
         }
 
