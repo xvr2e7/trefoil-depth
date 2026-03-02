@@ -11,15 +11,18 @@ public class SceneSelector : MonoBehaviour
     public TextMeshProUGUI instructionText;
 
     private InputDevice leftHandDevice;
+    private InputDevice rightHandDevice;
     private bool lastXButtonState = false;
     private bool lastYButtonState = false;
+    private bool lastAButtonState = false;
     private bool sceneSelected = false;
 
     void Start()
     {
         InitializeInputDevices();
         ShowInstruction("Press 'X' for Depth Only\n" +
-                       "Press 'Y' for Hand Tracking");
+                       "Press 'Y' for Hand Tracking\n" +
+                       "Press 'A' for Strategic Pinch");
     }
 
     void InitializeInputDevices()
@@ -30,28 +33,41 @@ public class SceneSelector : MonoBehaviour
         {
             leftHandDevice = devices[0];
         }
+
+        devices.Clear();
+        InputDevices.GetDevicesAtXRNode(XRNode.RightHand, devices);
+        if (devices.Count > 0)
+        {
+            rightHandDevice = devices[0];
+        }
     }
 
     void Update()
     {
-        if (!leftHandDevice.isValid)
+        if (!leftHandDevice.isValid || !rightHandDevice.isValid)
         {
             InitializeInputDevices();
         }
 
         if (!sceneSelected)
         {
-            // Check for X button press
+            // Check for X button press (left hand primary)
             if (GetXButtonDown())
             {
                 sceneSelected = true;
                 LoadScene(1); // DepthOnly scene
             }
-            // Check for Y button press
+            // Check for Y button press (left hand secondary)
             else if (GetYButtonDown())
             {
                 sceneSelected = true;
                 LoadScene(2); // DepthHandTracking scene
+            }
+            // Check for A button press (right hand primary)
+            else if (GetAButtonDown())
+            {
+                sceneSelected = true;
+                LoadScene(3); // StrategicPinch scene
             }
         }
     }
@@ -78,6 +94,20 @@ public class SceneSelector : MonoBehaviour
             {
                 bool pressed = currentState && !lastYButtonState;
                 lastYButtonState = currentState;
+                return pressed;
+            }
+        }
+        return false;
+    }
+
+    bool GetAButtonDown()
+    {
+        if (rightHandDevice.isValid)
+        {
+            if (rightHandDevice.TryGetFeatureValue(CommonUsages.primaryButton, out bool currentState))
+            {
+                bool pressed = currentState && !lastAButtonState;
+                lastAButtonState = currentState;
                 return pressed;
             }
         }
