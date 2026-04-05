@@ -3,6 +3,27 @@ using System.Collections.Generic;
 using UnityEngine;
 
 [Serializable]
+public class DepthTrial
+{
+    public float R1;
+    public float R2;
+    public float rotationSpeed;
+    public int direction;
+    public float startingAmplitude;
+    public int configID;
+
+    public DepthTrial(float r1, float r2, float speed, int dir, float startAmp = 0f, int configId = -1)
+    {
+        R1 = r1;
+        R2 = r2;
+        rotationSpeed = speed;
+        direction = dir;
+        startingAmplitude = startAmp;
+        configID = configId;
+    }
+}
+
+[Serializable]
 public class CalibrationTrial
 {
     public float sphereDepth;  // Ground truth depth of the reference sphere
