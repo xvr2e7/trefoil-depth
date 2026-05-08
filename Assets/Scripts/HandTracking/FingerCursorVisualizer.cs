@@ -1,21 +1,12 @@
-using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.XR.Hands;
 
 [RequireComponent(typeof(MeshFilter), typeof(MeshRenderer))]
-/// <summary>
-/// Renders a small sphere at the dominant hand's index-finger tip.
-///
-/// States:
-///   Active (light green)  — follows finger live
-///   Confirmed (dark green) — frozen at recorded position for 2s feedback
-///
-/// Enable with gameObject.SetActive(true) before pointing begins.
-/// Call SetConfirmed(pos) when dwell completes.
-/// Call ResetCursor() + gameObject.SetActive(false) when done with a point.
-/// </summary>
 public class FingerCursorVisualizer : MonoBehaviour
 {
+    [Header("Pose Source")]
+    [Tooltip("VIVE Tracker pose source. Mounted on the participant's hand/finger.")]
+    public TrackerPoseProvider trackerProvider;
+
     [Header("Appearance")]
     public float cursorScale = 0.015f;
     public Color lightGreen = new Color(0.5f, 1f, 0.35f);
@@ -23,7 +14,6 @@ public class FingerCursorVisualizer : MonoBehaviour
     private static readonly Color DarkGreen = new Color(0.05f, 0.55f, 0.1f);
 
     private MeshRenderer meshRenderer;
-    private XRHandSubsystem handSubsystem;
     private bool frozen = false;
 
     void Awake()
@@ -41,37 +31,19 @@ public class FingerCursorVisualizer : MonoBehaviour
     void OnEnable()
     {
         frozen = false;
-        meshRenderer.material.color = lightGreen;
-
-        if (handSubsystem == null)
-        {
-            var list = new List<XRHandSubsystem>();
-            SubsystemManager.GetSubsystems(list);
-            if (list.Count > 0) handSubsystem = list[0];
-        }
+        if (meshRenderer != null)
+            meshRenderer.material.color = lightGreen;
     }
 
     void Update()
     {
-        if (frozen) return;   // stay at confirmed position, don't chase finger
+        if (frozen) return;
+        if (trackerProvider == null) return;
 
-        if (handSubsystem == null) return;
-
-        XRHand hand = HandednessManager.Instance.IsRightHanded()
-            ? handSubsystem.rightHand
-            : handSubsystem.leftHand;
-
-        if (!hand.isTracked) return;
-
-        XRHandJoint index = hand.GetJoint(XRHandJointID.IndexTip);
-        if (index.TryGetPose(out Pose pose))
-            transform.position = pose.position;
+        if (trackerProvider.TryGetPosition(out Vector3 pos))
+            transform.position = pos;
     }
 
-    // ------------------------------------------------------------------
-    // Freeze cursor at the confirmed position and turn dark green.
-    // Called when 3-second dwell (or manual A press) completes.
-    // ------------------------------------------------------------------
     public void SetConfirmed(Vector3 pos)
     {
         frozen = true;
@@ -79,36 +51,16 @@ public class FingerCursorVisualizer : MonoBehaviour
         meshRenderer.material.color = DarkGreen;
     }
 
-    // ------------------------------------------------------------------
-    // Restore cursor to live light-green tracking state.
-    // Call after confirmation feedback period, before SetActive(false).
-    // ------------------------------------------------------------------
     public void ResetCursor()
     {
         frozen = false;
         meshRenderer.material.color = lightGreen;
     }
 
-    // ------------------------------------------------------------------
-    // Returns current index-finger tip world position if tracked.
-    // ------------------------------------------------------------------
     public bool TryGetIndexTipPosition(out Vector3 pos)
     {
         pos = Vector3.zero;
-        if (handSubsystem == null) return false;
-
-        XRHand hand = HandednessManager.Instance.IsRightHanded()
-            ? handSubsystem.rightHand
-            : handSubsystem.leftHand;
-
-        if (!hand.isTracked) return false;
-
-        XRHandJoint index = hand.GetJoint(XRHandJointID.IndexTip);
-        if (index.TryGetPose(out Pose pose))
-        {
-            pos = pose.position;
-            return true;
-        }
-        return false;
+        if (trackerProvider == null) return false;
+        return trackerProvider.TryGetPosition(out pos);
     }
 }
