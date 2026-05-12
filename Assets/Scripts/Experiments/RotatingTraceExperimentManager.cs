@@ -200,8 +200,6 @@ public class RotatingTraceExperimentManager : MonoBehaviour
         if (trackerProvider.IsTracked)
         {
             GUILayout.Label($"Bound: {trackerProvider.BoundDeviceName}");
-            if (!string.IsNullOrEmpty(trackerProvider.BoundDeviceSerial))
-                GUILayout.Label($"Serial: {trackerProvider.BoundDeviceSerial}");
 
             if (trackerProvider.TryGetPosition(out Vector3 p))
                 GUILayout.Label($"Pos: ({p.x:F2}, {p.y:F2}, {p.z:F2})");
@@ -210,8 +208,8 @@ public class RotatingTraceExperimentManager : MonoBehaviour
         }
         else
         {
-            GUILayout.Label($"NOT BOUND  ({trackerProvider.LastDeviceCount} XR device(s) visible)");
-            GUILayout.Label("See Console for detected-device dump");
+            GUILayout.Label("NOT BOUND");
+            GUILayout.Label(trackerProvider.LastScanReport);
         }
     }
 
