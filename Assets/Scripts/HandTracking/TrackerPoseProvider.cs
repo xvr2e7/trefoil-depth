@@ -1,112 +1,108 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.XR;
 
+// Add this component to the same GameObject as a TrackedPoseDriver (Input System).
+// The TrackedPoseDriver writes pose into transform; this provider just exposes it
+// (plus a friendly status string) for the experiment manager and finger cursor.
+[RequireComponent(typeof(TrackedPoseDriver))]
 public class TrackerPoseProvider : MonoBehaviour
 {
-    [Header("Input Actions (new Input System)")]
-    [Tooltip("Bind to <XRController>{HeldInHand}/devicePosition (or <ViveTracker>{HeldInHand}/devicePosition if available).")]
-    public InputActionProperty positionAction;
-
-    [Tooltip("Bind to <XRController>{HeldInHand}/deviceRotation.")]
-    public InputActionProperty rotationAction;
-
-    [Tooltip("Optional: bind to <XRController>{HeldInHand}/isTracked. If unbound, validity is inferred from whether the position action has resolved a control.")]
+    [Header("Optional status source")]
+    [Tooltip("Bind to <HTCViveTrackerOpenXR>/isTracked to drive the IsTracked flag and status panel. If unbound, IsTracked falls back to 'has the transform moved away from the origin'.")]
     public InputActionProperty isTrackedAction;
 
     [Header("Debug")]
-    [Tooltip("Log binding status changes and first valid pose to Console.")]
     public bool verboseLogs = true;
 
-    // Exposed for GUI panels / debug overlays.
     public bool   IsTracked        { get; private set; } = false;
     public string BoundDeviceName  { get; private set; } = "";
     public string LastScanReport   { get; private set; } = "(not initialized)";
 
-    private Vector3    lastPos = Vector3.zero;
-    private Quaternion lastRot = Quaternion.identity;
-    private bool       loggedFirstPose = false;
-    private string     lastBoundName   = "";
+    private TrackedPoseDriver tpd;
+    private bool loggedFirstPose = false;
+    private string lastBoundName = "";
+
+    void Awake()
+    {
+        tpd = GetComponent<TrackedPoseDriver>();
+    }
 
     void OnEnable()
     {
-        TryEnable(positionAction);
-        TryEnable(rotationAction);
-        TryEnable(isTrackedAction);
+        var a = isTrackedAction.action;
+        if (a != null && !a.enabled) a.Enable();
     }
 
     void OnDisable()
     {
-        TryDisable(positionAction);
-        TryDisable(rotationAction);
-        TryDisable(isTrackedAction);
-    }
-
-    static void TryEnable(InputActionProperty prop)
-    {
-        var a = prop.action;
-        if (a != null && !a.enabled) a.Enable();
-    }
-
-    static void TryDisable(InputActionProperty prop)
-    {
-        var a = prop.action;
+        var a = isTrackedAction.action;
         if (a != null && a.enabled) a.Disable();
     }
 
     void Update()
     {
-        var posAct = positionAction.action;
-        var rotAct = rotationAction.action;
         var trkAct = isTrackedAction.action;
 
-        // Pose
-        if (posAct != null && posAct.enabled)
-            lastPos = posAct.ReadValue<Vector3>();
-        if (rotAct != null && rotAct.enabled)
-            lastRot = rotAct.ReadValue<Quaternion>();
+        bool trackedNow;
+        string boundName = "";
+        string report;
 
-        // Tracked state
-        bool isTrackedNow;
-        if (trkAct != null && trkAct.enabled)
-            isTrackedNow = trkAct.ReadValue<float>() > 0.5f;
+        if (trkAct != null && trkAct.enabled && trkAct.activeControl != null)
+        {
+            trackedNow = trkAct.ReadValue<float>() > 0.5f;
+            boundName  = trkAct.activeControl.device.name;
+            report     = trackedNow
+                ? $"Bound to '{boundName}' (isTracked action active)"
+                : $"Bound to '{boundName}' but isTracked == false";
+        }
         else
-            isTrackedNow = posAct != null && posAct.activeControl != null;
+        {
+            // Fallback: infer from whether TrackedPoseDriver is writing a non-origin pose.
+            // Identity rotation alone isn't a useful signal (could be the rest pose),
+            // so we key on position drift instead.
+            trackedNow = transform.position != Vector3.zero;
+            boundName  = trackedNow ? "TrackedPoseDriver (transform)" : "";
+            if (trackedNow)
+            {
+                report = $"Pose source: TrackedPoseDriver — pos=({transform.position.x:F2},{transform.position.y:F2},{transform.position.z:F2})";
+            }
+            else if (trkAct == null)
+            {
+                report = "isTracked action not assigned AND transform at origin — check TrackedPoseDriver bindings";
+            }
+            else
+            {
+                report = "isTracked action has no active control AND transform at origin — check TrackedPoseDriver + OpenXR tracker profile";
+            }
+        }
 
-        IsTracked = isTrackedNow;
-
-        // Diagnostics
-        string boundName = (posAct != null && posAct.activeControl != null)
-            ? posAct.activeControl.device.name
-            : "";
-
+        IsTracked       = trackedNow;
         BoundDeviceName = boundName;
-        LastScanReport  = !string.IsNullOrEmpty(boundName)
-            ? $"Bound to '{boundName}' via action '{posAct.name}'"
-            : (posAct == null ? "positionAction not assigned"
-                              : $"Action '{posAct.name}' has no active control (binding path or role tag mismatch?)");
+        LastScanReport  = report;
 
         if (verboseLogs && boundName != lastBoundName)
         {
-            Debug.Log($"[TrackerPoseProvider] {LastScanReport}");
+            Debug.Log($"[TrackerPoseProvider] {report}");
             lastBoundName = boundName;
         }
         if (verboseLogs && IsTracked && !loggedFirstPose)
         {
-            Debug.Log($"[TrackerPoseProvider] First valid pose: pos={lastPos} rot={lastRot.eulerAngles}");
+            Debug.Log($"[TrackerPoseProvider] First valid pose: pos={transform.position} rot={transform.rotation.eulerAngles}");
             loggedFirstPose = true;
         }
     }
 
     public bool TryGetPose(out Vector3 position, out Quaternion rotation)
     {
-        position = lastPos;
-        rotation = lastRot;
+        position = transform.position;
+        rotation = transform.rotation;
         return IsTracked;
     }
 
     public bool TryGetPosition(out Vector3 position)
     {
-        position = lastPos;
+        position = transform.position;
         return IsTracked;
     }
 }
