@@ -842,8 +842,8 @@ Camera:
   m_GameObject: {fileID: 1261840605}
   m_Enabled: 1
   serializedVersion: 2
-  m_ClearFlags: 1
-  m_BackGroundColor: {r: 0.19215687, g: 0.3019608, b: 0.4745098, a: 0}
+  m_ClearFlags: 2
+  m_BackGroundColor: {r: 0.5283019, g: 0.5283019, b: 0.5283019, a: 0}
   m_projectionMatrixMode: 1
   m_GateFitMode: 2
   m_FOVAxisMode: 0
@@ -1017,19 +1017,23 @@ MonoBehaviour:
   markerPrefab: {fileID: 0}
   markerStartPhi: 0
   markerSpeed: 0.6
-  trackerProvider: {fileID: 0}
-  fingerCursor: {fileID: 0}
+  markerScale: 0.025
+  markerOffset: 0.2
+  trackerProvider: {fileID: 1594264200}
+  fingerCursor: {fileID: 226143857}
   minTraceDistance: 0.005
   calibTrefoil: {fileID: 218376408}
   calibModel: {fileID: 1707924144}
+  calibModelRotationSpeed: 20
   instructionText: {fileID: 2133389898}
   explainText: {fileID: 827496338}
   R1: 1
   R2: 1.5
   rotationSpeed: 30
   rotationDirection: 1
-  trialsPerBlock: 6
-  totalBlocks: 4
+  practiceTrials: 1
+  totalTrials: 24
+  autoBreakInterval: 12
 --- !u!1 &1594264199
 GameObject:
   m_ObjectHideFlags: 0
@@ -1040,6 +1044,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1594264201}
   - component: {fileID: 1594264200}
+  - component: {fileID: 1594264202}
   m_Layer: 0
   m_Name: TrackerProvider
   m_TagString: Untagged
@@ -1059,8 +1064,27 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b97f3f335960b3049b9d1bb319e2551e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  deviceNameOrSerial: 
-  rescanInterval: 1
+  isTrackedAction:
+    m_UseReference: 0
+    m_Action:
+      m_Name: Is Tracked
+      m_Type: 0
+      m_ExpectedControlType: 
+      m_Id: 79f210aa-f56f-429d-b378-4e76f2dccaab
+      m_Processors: 
+      m_Interactions: 
+      m_SingletonActionBindings:
+      - m_Name: 
+        m_Id: c53a734d-c4e0-4a31-8aac-a8a1b0af8d93
+        m_Path: <XRTracker>/isTracked
+        m_Interactions: 
+        m_Processors: 
+        m_Groups: 
+        m_Action: Is Tracked
+        m_Flags: 0
+      m_Flags: 0
+    m_Reference: {fileID: 0}
+  verboseLogs: 1
 --- !u!4 &1594264201
 Transform:
   m_ObjectHideFlags: 0
@@ -1076,6 +1100,99 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1594264202
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1594264199}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c2fadf230d1919748a9aa21d40f74619, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_TrackingType: 0
+  m_UpdateType: 0
+  m_IgnoreTrackingState: 0
+  m_PositionInput:
+    m_UseReference: 0
+    m_Action:
+      m_Name: Position
+      m_Type: 0
+      m_ExpectedControlType: Vector3
+      m_Id: ea403a01-f835-4437-82ac-b9dee9fc685e
+      m_Processors: 
+      m_Interactions: 
+      m_SingletonActionBindings:
+      - m_Name: 
+        m_Id: ce3ad78d-de1b-4065-9f28-b6afe9df3a1b
+        m_Path: <XRViveTracker>{Camera}/devicePosition
+        m_Interactions: 
+        m_Processors: 
+        m_Groups: 
+        m_Action: Position
+        m_Flags: 0
+      m_Flags: 0
+    m_Reference: {fileID: 0}
+  m_RotationInput:
+    m_UseReference: 0
+    m_Action:
+      m_Name: Rotation
+      m_Type: 0
+      m_ExpectedControlType: Quaternion
+      m_Id: 3582e7de-4e77-4831-ad62-241e9234a3b8
+      m_Processors: 
+      m_Interactions: 
+      m_SingletonActionBindings:
+      - m_Name: 
+        m_Id: 8e3591f0-135d-41b0-b872-b58920b2ae58
+        m_Path: <XRViveTracker>{Camera}/deviceRotation
+        m_Interactions: 
+        m_Processors: 
+        m_Groups: 
+        m_Action: Rotation
+        m_Flags: 0
+      m_Flags: 0
+    m_Reference: {fileID: 0}
+  m_TrackingStateInput:
+    m_UseReference: 0
+    m_Action:
+      m_Name: Tracking State
+      m_Type: 0
+      m_ExpectedControlType: Integer
+      m_Id: 6a545c0f-7708-49e2-8867-151cf0f2d114
+      m_Processors: 
+      m_Interactions: 
+      m_SingletonActionBindings:
+      - m_Name: 
+        m_Id: 99126172-91f2-4127-8e08-177de51ee1ad
+        m_Path: <XRViveTracker>{Camera}/trackingState
+        m_Interactions: 
+        m_Processors: 
+        m_Groups: 
+        m_Action: Tracking State
+        m_Flags: 0
+      m_Flags: 0
+    m_Reference: {fileID: 0}
+  m_PositionAction:
+    m_Name: 
+    m_Type: 0
+    m_ExpectedControlType: 
+    m_Id: 2858ac41-a32f-420e-bd01-f04c2f4951d0
+    m_Processors: 
+    m_Interactions: 
+    m_SingletonActionBindings: []
+    m_Flags: 0
+  m_RotationAction:
+    m_Name: 
+    m_Type: 0
+    m_ExpectedControlType: 
+    m_Id: 4761e5ad-e24b-43d1-a95f-c7ee05198941
+    m_Processors: 
+    m_Interactions: 
+    m_SingletonActionBindings: []
+    m_Flags: 0
 --- !u!1 &1663680752
 GameObject:
   m_ObjectHideFlags: 0
