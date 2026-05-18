@@ -304,4 +304,37 @@ public class FourierTrefoil3D : MonoBehaviour
     {
         meshRenderer.enabled = visible;
     }
+
+    // Returns the current Y-axis rotation angle (degrees) accumulated by autoRotate.
+    // Note: the field is named currentRotationZ in legacy code but drives Euler Y.
+    public float GetCurrentRotationY() => currentRotationZ;
+
+    // Returns the nearest point on the curve centerline in world space and its phi value.
+    // Requires ResetParameters to have been called (loads CSV data).
+    public Vector3 GetNearestCurveWorldPoint(Vector3 queryWorldPos, out float nearestPhi)
+    {
+        nearestPhi = 0f;
+        if (phiValues == null || phiValues.Length == 0)
+            return queryWorldPos;
+
+        Vector3 localQuery = transform.InverseTransformPoint(queryWorldPos);
+        float minSqDist = float.MaxValue;
+        int bestIdx = 0;
+
+        for (int i = 0; i < phiValues.Length; i++)
+        {
+            float phi = phiValues[i];
+            float x = R1 * Mathf.Cos(phi) + R2 * Mathf.Cos(2 * phi);
+            float y = R1 * Mathf.Sin(phi) - R2 * Mathf.Sin(2 * phi);
+            float z = zBaseValues[i] * amplitude;
+            float sqd = (localQuery - new Vector3(x, y, z)).sqrMagnitude;
+            if (sqd < minSqDist) { minSqDist = sqd; bestIdx = i; }
+        }
+
+        nearestPhi = phiValues[bestIdx];
+        float bx = R1 * Mathf.Cos(nearestPhi) + R2 * Mathf.Cos(2 * nearestPhi);
+        float by = R1 * Mathf.Sin(nearestPhi) - R2 * Mathf.Sin(2 * nearestPhi);
+        float bz = zBaseValues[bestIdx] * amplitude;
+        return transform.TransformPoint(new Vector3(bx, by, bz));
+    }
 }

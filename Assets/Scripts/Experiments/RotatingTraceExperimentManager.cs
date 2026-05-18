@@ -12,31 +12,35 @@ public class RotatingTraceExperimentManager : MonoBehaviour
     // ─── Inspector ──────────────────────────────────────────────────────────
 
     [Header("Stimulus")]
-    public TrefoilGenerator rotatingTrefoil;   // the single rotating 2D trefoil
+    public TrefoilGenerator rotatingTrefoil;   // single rotating 2D trefoil for main trials
 
-    [Header("Marker")]
-    public GameObject markerPrefab;            // optional amber sphere prefab
-    [Tooltip("Starting phi (radians) on the trefoil curve.")]
-    public float markerStartPhi = 0f;
-    [Tooltip("Marker travel speed along phi, in radians/second.")]
-    public float markerSpeed = 0.6f;
-    [Tooltip("Marker sphere diameter in world meters. Applied to both prefab and fallback.")]
-    public float markerScale = 0.025f;
-    [Tooltip("Lateral offset from the curve along the curve normal, in trefoil-local units. Keeps the marker beside the curve rather than on top of it.")]
-    public float markerOffset = 0.2f;
+    [Header("Trace Trail")]
+    [Tooltip("Number of recent tracker positions shown as a live guide trail during 2D trials.")]
+    public int   trailPointCount = 20;
+    public float trailLineWidth  = 0.006f;
+    public Color trailColor      = new Color(1f, 0.5f, 0f);  // amber
 
     [Header("Hand Tracking / Tracing")]
     [Tooltip("VIVE Tracker pose source. Mounted on the participant's hand/finger.")]
     public TrackerPoseProvider trackerProvider;
-    public FingerCursorVisualizer fingerCursor; // live cursor (must reference same trackerProvider)
-    [Tooltip("Min distance (m) between recorded trace points. Acts as a gate so a still hand doesn't generate redundant samples. Set to 0 to record every frame.")]
+    public FingerCursorVisualizer fingerCursor;
+    [Tooltip("Min distance (m) between recorded trace points.")]
     public float minTraceDistance = 0.001f;
 
-    [Header("Calibration (reuse existing prefabs)")]
+    [Header("Calibration")]
     public TrefoilGenerator calibTrefoil;
     public FourierTrefoil3D  calibModel;
-    [Tooltip("Slow Y-axis rotation speed (deg/sec) for the 3D calibration model preview. Purely illustrative — not the actual trefoil rotation pattern.")]
+    [Tooltip("Slow Y-axis rotation speed (deg/sec) for the 3D calibration model.")]
     public float calibModelRotationSpeed = 20f;
+    [Tooltip("Amplitude for the calibration 3D model. Must be positive to show the perceptually-correct " +
+             "2-front/1-back cross-junction configuration that matches the SFM percept.")]
+    public float calibAmplitude = 1.0f;
+
+    [Header("3D Trace Calibration")]
+    [Tooltip("Number of 3D trace trials run after calibration and before the main experiment. " +
+             "Participant traces the rotating 3D model for several cycles; ground-truth curve " +
+             "coordinates are saved alongside the tracker positions.")]
+    public int calib3DTraceTrials = 3;
 
     [Header("UI")]
     public TextMeshProUGUI instructionText;
@@ -51,7 +55,7 @@ public class RotatingTraceExperimentManager : MonoBehaviour
     [Header("Trials")]
     [Tooltip("Number of practice trials before the main session. Practice data is NOT saved.")]
     public int practiceTrials = 1;
-    [Tooltip("Number of main trials. Currently all use the same R1/R2/speed/direction (identical replication design).")]
+    [Tooltip("Number of main trials.")]
     public int totalTrials = 24;
     [Tooltip("Automatically insert a break after this many completed main trials. Set to 0 to disable.")]
     public int autoBreakInterval = 12;
@@ -59,48 +63,58 @@ public class RotatingTraceExperimentManager : MonoBehaviour
 
     // ─── Runtime state ─────────────────────────────────────────────────────
 
-    private GameObject markerObject;
+    // Trail (live tracker positions during 2D trials, rendered as a line)
+    private LineRenderer trailRenderer;
+    private Queue<Vector3> liveTrailBuffer = new Queue<Vector3>();
 
-    private List<TraceRecord> records = new List<TraceRecord>();
-    private List<Vector3>  currentTrace      = new List<Vector3>();
-    private List<float>    currentTracePhi   = new List<float>();   // trefoil orientation when point recorded
-    private List<float>    currentTraceMphi  = new List<float>();   // marker phi when point recorded
-    private List<float>    currentTraceT     = new List<float>();
+    // Main trial trace data
+    private List<TraceRecord> records        = new List<TraceRecord>();
+    private List<Vector3>     currentTrace   = new List<Vector3>();
+    private List<float>       currentTracePhi = new List<float>();
+    private List<float>       currentTraceT   = new List<float>();
     private Vector3 lastTracedPoint;
 
-    // Experimenter-driven flags
-    private bool signalStart = false;   // "advance to next phase / start trial"
-    private bool signalDone  = false;   // "this trial is finished"
-    private bool isRecording = false;   // capture tracker poses into currentTrace
-    private bool requestBreak = false;  // experimenter requests a break after current trial
+    // 3D calibration trace data
+    private List<CalibTraceRecord> calib3DTraceRecords      = new List<CalibTraceRecord>();
+    private List<Vector3>          currentCalibTrace         = new List<Vector3>();
+    private List<Vector3>          currentCalibGroundTruth   = new List<Vector3>();
+    private List<float>            currentCalibPhi           = new List<float>();
+    private List<float>            currentCalibRotY          = new List<float>();
+    private List<float>            currentCalibT             = new List<float>();
+    private Vector3 lastCalibTracedPoint;
 
-    // Trial-time state
-    private float currentMarkerPhi = 0f;
-    private bool tracingPhase = false;     // marker is traveling, recording can happen
+    // Experimenter-driven flags
+    private bool signalStart  = false;
+    private bool signalDone   = false;
+    private bool isRecording  = false;
+    private bool requestBreak = false;
+
+    // Active phase flags — exactly one is true during participant activity
+    private bool tracingPhase  = false;   // 2D main / practice trial
+    private bool calib3DPhase  = false;   // 3D calibration trace
 
     // Trial bookkeeping (main trials only)
     private int globalTrialIndex = 0;
 
-    // Status string for the GUI
+    // Status string for the GUI panel
     private string statusLine = "Idle";
 
-    // Display refresh rate (reported by the XR runtime). Logged + saved per row.
+    // Display refresh rate (reported by XR runtime); saved per row.
     private float displayRefreshRate = 0f;
 
-    // Per-trial frame counter — divided by trial duration to get measured rate.
+    // Per-trial frame counter for measured rate.
     private int framesInTracing = 0;
 
 
     void Start()
     {
         QueryDisplayRefreshRate();
-        BuildMarker();
+        BuildTrail();
         StartCoroutine(Main());
     }
 
     void QueryDisplayRefreshRate()
     {
-        // Preferred path: ask the active XR display subsystem.
         var subs = new List<XRDisplaySubsystem>();
         SubsystemManager.GetSubsystems(subs);
         foreach (var s in subs)
@@ -112,7 +126,6 @@ public class RotatingTraceExperimentManager : MonoBehaviour
             }
         }
 
-        // Fallback (older / non-XR runs).
         if (displayRefreshRate <= 0f)
         {
 #pragma warning disable CS0618
@@ -125,7 +138,7 @@ public class RotatingTraceExperimentManager : MonoBehaviour
 
     void Update()
     {
-        // Keyboard shortcuts (mirrors GUI buttons; convenient for the experimenter)
+        // Keyboard shortcuts (mirror GUI buttons for the experimenter)
         if (Input.GetKeyDown(KeyCode.Space)) signalStart = true;
         if (Input.GetKeyDown(KeyCode.D))     signalDone  = true;
         if (Input.GetKeyDown(KeyCode.R))     isRecording = !isRecording;
@@ -133,10 +146,16 @@ public class RotatingTraceExperimentManager : MonoBehaviour
 
         if (tracingPhase)
         {
-            AdvanceMarker();
-            UpdateMarkerPosition();
             if (isRecording) SampleTracker();
+            UpdateLiveTrail();
         }
+
+        if (calib3DPhase)
+        {
+            if (isRecording) SampleTracker3D();
+        }
+
+        UpdateTrailRenderer();
     }
 
 
@@ -155,7 +174,7 @@ public class RotatingTraceExperimentManager : MonoBehaviour
         if (GUILayout.Button("Start / Advance  (Space)"))
             signalStart = true;
 
-        GUI.enabled = tracingPhase;
+        GUI.enabled = tracingPhase || calib3DPhase;
         string recLabel = isRecording ? "Stop Recording  (R)" : "Begin Recording  (R)";
         if (GUILayout.Button(recLabel))
             isRecording = !isRecording;
@@ -200,7 +219,6 @@ public class RotatingTraceExperimentManager : MonoBehaviour
         if (trackerProvider.IsTracked)
         {
             GUILayout.Label($"Bound: {trackerProvider.BoundDeviceName}");
-
             if (trackerProvider.TryGetPosition(out Vector3 p))
                 GUILayout.Label($"Pos: ({p.x:F2}, {p.y:F2}, {p.z:F2})");
             else
@@ -214,24 +232,43 @@ public class RotatingTraceExperimentManager : MonoBehaviour
     }
 
 
-    // ─── Setup helpers ─────────────────────────────────────────────────────
+    // ─── Trail (2D trial only) ─────────────────────────────────────────────
 
-    void BuildMarker()
+    void BuildTrail()
     {
-        if (markerPrefab != null)
+        var go = new GameObject("TraceTrail");
+        trailRenderer = go.AddComponent<LineRenderer>();
+        trailRenderer.useWorldSpace = true;
+        trailRenderer.startWidth    = trailLineWidth;
+        trailRenderer.endWidth      = trailLineWidth * 0.3f;  // taper toward most-recent end
+
+        var mat = new Material(Shader.Find("Custom/BinocularUnlit") ?? Shader.Find("Sprites/Default"));
+        mat.color = trailColor;
+        trailRenderer.material      = mat;
+        trailRenderer.positionCount = 0;
+    }
+
+    void UpdateLiveTrail()
+    {
+        if (trackerProvider == null || !trackerProvider.TryGetPosition(out Vector3 pos)) return;
+        liveTrailBuffer.Enqueue(pos);
+        while (liveTrailBuffer.Count > trailPointCount) liveTrailBuffer.Dequeue();
+    }
+
+    void UpdateTrailRenderer()
+    {
+        if (trailRenderer == null) return;
+
+        if (!tracingPhase || liveTrailBuffer.Count < 2)
         {
-            markerObject = Instantiate(markerPrefab);
+            trailRenderer.positionCount = 0;
+            return;
         }
-        else
-        {
-            markerObject = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            Destroy(markerObject.GetComponent<Collider>());
-            var mat = new Material(Shader.Find("Custom/BinocularUnlit") ?? Shader.Find("Standard"));
-            mat.color = new Color(1f, 0.75f, 0f); // amber
-            markerObject.GetComponent<MeshRenderer>().material = mat;
-        }
-        markerObject.transform.localScale = Vector3.one * markerScale;
-        markerObject.SetActive(false);
+
+        var pts = new Vector3[liveTrailBuffer.Count];
+        liveTrailBuffer.CopyTo(pts, 0);
+        trailRenderer.positionCount = pts.Length;
+        trailRenderer.SetPositions(pts);
     }
 
 
@@ -247,10 +284,10 @@ public class RotatingTraceExperimentManager : MonoBehaviour
         Say("Welcome.\n\nThe experimenter will guide you through each step.\nPlease let them know when you're ready.");
         yield return WaitSignalStart();
 
-        // Clear the welcome text before calibration begins.
         Say("");
 
         yield return RunCalibration();
+        yield return RunCalibration3DTrace();
 
         // ── Practice ──
         if (practiceTrials > 0)
@@ -276,7 +313,7 @@ public class RotatingTraceExperimentManager : MonoBehaviour
             bool isLast = completed == totalTrials;
             if (isLast) continue;
 
-            bool autoBreak  = autoBreakInterval > 0 && completed % autoBreakInterval == 0;
+            bool autoBreak   = autoBreakInterval > 0 && completed % autoBreakInterval == 0;
             bool manualBreak = requestBreak;
 
             if (autoBreak || manualBreak)
@@ -314,16 +351,14 @@ public class RotatingTraceExperimentManager : MonoBehaviour
         yield return WaitSignalStart();
         if (calibTrefoil != null) calibTrefoil.SetVisibility(false);
 
-        // Part 2 — slow Y-axis rotation of an example 3D model, just to expose
-        // the 3D structure. This is NOT the actual rotational pattern of the
-        // experimental stimulus — it's only to show what shape is possible.
-        Explain("CALIBRATION (2 / 3)\n\nThis is one possible 3D interpretation of the curve, slowly rotating so you can see its shape.\n(This is not how it actually moves during the trials.)");
+        // Part 2 — slow Y-axis rotation of the 3D model to expose 3D structure.
+        // calibAmplitude > 0 encodes the correct perceptual interpretation:
+        // 2 front cross-junctions and 1 back cross-junction (matching the SFM percept).
+        Explain("CALIBRATION (2 / 3)\n\nThis is one possible 3D interpretation of the curve, slowly rotating so you can see its shape.\n(This is not how it moves during the main trials.)");
         SetStatus("Calibration 2 — 3D model preview");
         if (calibModel != null)
         {
-            calibModel.ResetParameters(R1, R2, 0f, Random.Range(0.5f, 1.0f));
-            // Y-axis auto-rotation. SetRotationMode(true, ...) sets autoRotate=true
-            // and disables joystick amplitude adjustment.
+            calibModel.ResetParameters(R1, R2, 0f, calibAmplitude);
             calibModel.SetRotationMode(true, calibModelRotationSpeed, 1);
             calibModel.SetVisibility(true);
         }
@@ -344,14 +379,81 @@ public class RotatingTraceExperimentManager : MonoBehaviour
     }
 
 
+    IEnumerator RunCalibration3DTrace()
+    {
+        Explain("3D TRACE PRACTICE\n\nYou will now trace along the rotating 3D shape three times.\nThis helps you understand its 3D structure before the main experiment.\nThe experimenter will begin each trial when you're ready.");
+        SetStatus("3D trace calibration — intro");
+        yield return WaitSignalStart();
+
+        for (int i = 0; i < calib3DTraceTrials; i++)
+            yield return RunCalib3DTrialInternal(i);
+
+        Explain("");
+    }
+
+    IEnumerator RunCalib3DTrialInternal(int trialIdx)
+    {
+        currentCalibTrace.Clear();
+        currentCalibGroundTruth.Clear();
+        currentCalibPhi.Clear();
+        currentCalibRotY.Clear();
+        currentCalibT.Clear();
+        signalDone   = false;
+        isRecording  = false;
+        calib3DPhase = false;
+
+        if (calibModel != null)
+        {
+            calibModel.SetRotationMode(true, calibModelRotationSpeed, 1);
+            calibModel.SetVisibility(true);
+        }
+
+        Explain($"3D TRACE (Trial {trialIdx + 1} / {calib3DTraceTrials})\n\nWatch the shape rotate, then trace your finger along the curve.\nFollow the curve for several full rotations.\nSay 'done' when finished.");
+        SetStatus($"Calib3D {trialIdx + 1}/{calib3DTraceTrials} — waiting to begin");
+        yield return WaitSignalStart();
+
+        calib3DPhase = true;
+        if (fingerCursor != null) { fingerCursor.ResetCursor(); fingerCursor.gameObject.SetActive(true); }
+
+        float startTime = Time.time;
+
+        Explain($"3D TRACE (Trial {trialIdx + 1} / {calib3DTraceTrials})\n\nTrace along the curve.\nSay 'done' when you've completed several full rotations.");
+
+        while (!signalDone)
+        {
+            SetStatus($"Calib3D {trialIdx + 1} — rec: {(isRecording ? "ON" : "off")} | pts: {currentCalibTrace.Count}");
+            yield return null;
+        }
+
+        calib3DPhase = false;
+        isRecording  = false;
+        if (fingerCursor != null) fingerCursor.gameObject.SetActive(false);
+        if (calibModel   != null) calibModel.SetVisibility(false);
+
+        float duration = Time.time - startTime;
+        calib3DTraceRecords.Add(new CalibTraceRecord(
+            trialIdx,
+            new List<Vector3>(currentCalibTrace),
+            new List<Vector3>(currentCalibGroundTruth),
+            new List<float>(currentCalibPhi),
+            new List<float>(currentCalibRotY),
+            new List<float>(currentCalibT),
+            duration));
+
+        Explain($"3D trace trial {trialIdx + 1} complete.\nThe experimenter will continue when you're ready.");
+        SetStatus($"Calib3D {trialIdx + 1} done — {currentCalibTrace.Count} pts");
+        yield return new WaitForSeconds(0.5f);
+        yield return WaitSignalStart();
+        Explain("");
+    }
+
+
     IEnumerator RunTrialInternal(bool isPractice)
     {
-        // --- Setup ---
         currentTrace.Clear();
         currentTracePhi.Clear();
-        currentTraceMphi.Clear();
         currentTraceT.Clear();
-        currentMarkerPhi = markerStartPhi;
+        liveTrailBuffer.Clear();
         signalDone   = false;
         isRecording  = false;
         tracingPhase = false;
@@ -363,25 +465,18 @@ public class RotatingTraceExperimentManager : MonoBehaviour
             rotatingTrefoil.SetVisibility(true);
         }
 
-        markerObject.SetActive(true);
-        UpdateMarkerPosition();
-
-        string header = isPractice ? "PRACTICE" : "";
         string statusPrefix = isPractice ? "Practice" : $"Trial {globalTrialIndex + 1}/{totalTrials}";
 
-        // --- Pre-trial pause for instructions (no trial-number shown to participant) ---
-        string preText = (isPractice ? "PRACTICE\n\n" : "")
-            + "Watch the amber marker as it travels along the curve.\nWhen you're ready, the experimenter will begin recording.\nFollow the marker with your finger to trace the depth you perceive.";
-        Explain(preText);
+        Explain((isPractice ? "PRACTICE\n\n" : "")
+            + "Observe the rotating curve.\nWhen you're ready, the experimenter will begin recording.\nFollow the curve with your finger to trace the depth you perceive.");
         Say("");
         SetStatus($"{statusPrefix} — waiting to begin");
 
         yield return WaitSignalStart();
 
-        // --- Tracing phase ---
         tracingPhase = true;
         Explain((isPractice ? "PRACTICE\n\n" : "")
-            + "Trace the marker with your finger.\nSay 'done' when you've finished.");
+            + "Trace the curve with your finger.\nSay 'done' when you've finished.");
         if (fingerCursor != null) { fingerCursor.ResetCursor(); fingerCursor.gameObject.SetActive(true); }
 
         float trialStartTime = Time.time;
@@ -390,18 +485,16 @@ public class RotatingTraceExperimentManager : MonoBehaviour
         while (!signalDone)
         {
             framesInTracing++;
-            SetStatus($"{statusPrefix} — rec: {(isRecording ? "ON" : "off")} | pts: {currentTrace.Count} | markerPhi: {currentMarkerPhi:F2}");
+            SetStatus($"{statusPrefix} — rec: {(isRecording ? "ON" : "off")} | pts: {currentTrace.Count}");
             yield return null;
         }
 
-        // --- Wrap up ---
         tracingPhase = false;
         isRecording  = false;
-        if (fingerCursor != null) fingerCursor.gameObject.SetActive(false);
+        if (fingerCursor    != null) fingerCursor.gameObject.SetActive(false);
         if (rotatingTrefoil != null) { rotatingTrefoil.PauseRotation(); rotatingTrefoil.SetVisibility(false); }
-        markerObject.SetActive(false);
 
-        float duration = Time.time - trialStartTime;
+        float duration    = Time.time - trialStartTime;
         float measuredRate = duration > 0f ? framesInTracing / duration : 0f;
 
         if (!isPractice)
@@ -412,11 +505,8 @@ public class RotatingTraceExperimentManager : MonoBehaviour
                                         R1, R2, rotationSpeed, rotationDirection,
                                         new List<Vector3>(currentTrace),
                                         new List<float>(currentTracePhi),
-                                        new List<float>(currentTraceMphi),
                                         new List<float>(currentTraceT),
-                                        duration,
-                                        displayRefreshRate,
-                                        measuredRate));
+                                        duration, displayRefreshRate, measuredRate));
         }
 
         Explain((isPractice ? "Practice complete (not saved).\n" : "Trial complete.\n")
@@ -428,25 +518,7 @@ public class RotatingTraceExperimentManager : MonoBehaviour
     }
 
 
-    // ─── Per-frame trial logic ─────────────────────────────────────────────
-
-    void AdvanceMarker()
-    {
-        currentMarkerPhi += markerSpeed * Time.deltaTime;
-        if (currentMarkerPhi > Mathf.PI * 2f) currentMarkerPhi -= Mathf.PI * 2f;
-    }
-
-    void UpdateMarkerPosition()
-    {
-        if (rotatingTrefoil == null || markerObject == null) return;
-
-        Vector3 localPoint  = rotatingTrefoil.GetPointAt(currentMarkerPhi);
-        Vector3 localNormal = rotatingTrefoil.GetNormalAt(currentMarkerPhi);
-        localPoint += localNormal * markerOffset;
-
-        Vector3 worldPoint = rotatingTrefoil.transform.TransformPoint(localPoint);
-        markerObject.transform.position = worldPoint;
-    }
+    // ─── Per-frame sampling ────────────────────────────────────────────────
 
     void SampleTracker()
     {
@@ -471,8 +543,37 @@ public class RotatingTraceExperimentManager : MonoBehaviour
     {
         currentTrace.Add(worldPos);
         currentTracePhi.Add(rotatingTrefoil != null ? rotatingTrefoil.GetCurrentAngle() : 0f);
-        currentTraceMphi.Add(currentMarkerPhi);
         currentTraceT.Add(Time.time);
+    }
+
+    void SampleTracker3D()
+    {
+        if (trackerProvider == null || calibModel == null) return;
+        if (!trackerProvider.TryGetPosition(out Vector3 pos)) return;
+
+        if (currentCalibTrace.Count == 0)
+        {
+            lastCalibTracedPoint = pos;
+            RecordCalibPoint(pos);
+            return;
+        }
+
+        if (Vector3.Distance(pos, lastCalibTracedPoint) > minTraceDistance)
+        {
+            RecordCalibPoint(pos);
+            lastCalibTracedPoint = pos;
+        }
+    }
+
+    void RecordCalibPoint(Vector3 worldPos)
+    {
+        currentCalibTrace.Add(worldPos);
+
+        Vector3 nearest = calibModel.GetNearestCurveWorldPoint(worldPos, out float phi);
+        currentCalibGroundTruth.Add(nearest);
+        currentCalibPhi.Add(phi);
+        currentCalibRotY.Add(calibModel.GetCurrentRotationY());
+        currentCalibT.Add(Time.time);
     }
 
 
@@ -496,8 +597,8 @@ public class RotatingTraceExperimentManager : MonoBehaviour
         if (rotatingTrefoil != null) rotatingTrefoil.SetVisibility(false);
         if (calibTrefoil    != null) calibTrefoil.SetVisibility(false);
         if (calibModel      != null) calibModel.SetVisibility(false);
-        if (markerObject    != null) markerObject.SetActive(false);
         if (fingerCursor    != null) fingerCursor.gameObject.SetActive(false);
+        if (trailRenderer   != null) trailRenderer.positionCount = 0;
     }
 
 
@@ -506,12 +607,16 @@ public class RotatingTraceExperimentManager : MonoBehaviour
     void SaveData()
     {
         string timestamp = System.DateTime.Now.ToString("yyyyMMdd_HHmmss");
-        string filename  = $"RotatingTrace_{timestamp}.csv";
-        string path      = Path.Combine(Application.persistentDataPath, filename);
+        SaveMainData(timestamp);
+        SaveCalib3DData(timestamp);
+    }
 
+    void SaveMainData(string timestamp)
+    {
+        string path = Path.Combine(Application.persistentDataPath, $"RotatingTrace_{timestamp}.csv");
         var csv = new StringBuilder();
         csv.AppendLine("TrialIndex,Block,TrialInBlock,R1,R2,RotationSpeed,RotationDirection," +
-                       "PointIndex,WorldX,WorldY,WorldZ,TrefoilAngleDeg,MarkerPhi,TimeStamp," +
+                       "PointIndex,WorldX,WorldY,WorldZ,TrefoilAngleDeg,TimeStamp," +
                        "TrialDuration,DisplayRefreshRateHz,MeasuredFrameRateHz");
 
         foreach (var rec in records)
@@ -519,20 +624,52 @@ public class RotatingTraceExperimentManager : MonoBehaviour
             for (int i = 0; i < rec.tracePoints.Count; i++)
             {
                 Vector3 p = rec.tracePoints[i];
-                float   a = i < rec.traceAngles.Count    ? rec.traceAngles[i]    : 0f;
-                float   m = i < rec.traceMarkerPhi.Count ? rec.traceMarkerPhi[i] : 0f;
-                float   t = i < rec.traceTimes.Count     ? rec.traceTimes[i]     : 0f;
+                float   a = i < rec.traceAngles.Count ? rec.traceAngles[i] : 0f;
+                float   t = i < rec.traceTimes.Count  ? rec.traceTimes[i]  : 0f;
                 csv.AppendLine($"{rec.trialIndex},{rec.block},{rec.trialInBlock}," +
                                $"{rec.R1},{rec.R2},{rec.rotationSpeed},{rec.rotationDirection}," +
-                               $"{i},{p.x:F4},{p.y:F4},{p.z:F4},{a:F2},{m:F4},{t:F3}," +
+                               $"{i},{p.x:F4},{p.y:F4},{p.z:F4},{a:F2},{t:F3}," +
                                $"{rec.duration:F2},{rec.displayRefreshRate:F2},{rec.measuredFrameRate:F2}");
             }
         }
 
         File.WriteAllText(path, csv.ToString());
-        Debug.Log($"[RotatingTrace] Saved {records.Count} trials to {path}");
+        Debug.Log($"[RotatingTrace] Saved {records.Count} main trials → {path}");
     }
 
+    void SaveCalib3DData(string timestamp)
+    {
+        if (calib3DTraceRecords.Count == 0) return;
+
+        string path = Path.Combine(Application.persistentDataPath, $"RotatingTrace_Calib3D_{timestamp}.csv");
+        var csv = new StringBuilder();
+        csv.AppendLine("CalibTrialIndex,PointIndex," +
+                       "TrackerWorldX,TrackerWorldY,TrackerWorldZ," +
+                       "NearestCurveX,NearestCurveY,NearestCurveZ," +
+                       "NearestPhi,ModelRotationYDeg,TimeStamp,TrialDuration");
+
+        foreach (var rec in calib3DTraceRecords)
+        {
+            for (int i = 0; i < rec.trackerPositions.Count; i++)
+            {
+                Vector3 tp = rec.trackerPositions[i];
+                Vector3 gp = i < rec.groundTruthPositions.Count ? rec.groundTruthPositions[i] : Vector3.zero;
+                float phi  = i < rec.nearestPhi.Count ? rec.nearestPhi[i] : 0f;
+                float ry   = i < rec.modelRotY.Count  ? rec.modelRotY[i]  : 0f;
+                float t    = i < rec.times.Count      ? rec.times[i]      : 0f;
+                csv.AppendLine($"{rec.trialIndex},{i}," +
+                               $"{tp.x:F4},{tp.y:F4},{tp.z:F4}," +
+                               $"{gp.x:F4},{gp.y:F4},{gp.z:F4}," +
+                               $"{phi:F4},{ry:F2},{t:F3},{rec.duration:F2}");
+            }
+        }
+
+        File.WriteAllText(path, csv.ToString());
+        Debug.Log($"[RotatingTrace] Saved {calib3DTraceRecords.Count} calib-3D trials → {path}");
+    }
+
+
+    // ─── Data structures ───────────────────────────────────────────────────
 
     private class TraceRecord
     {
@@ -541,19 +678,41 @@ public class RotatingTraceExperimentManager : MonoBehaviour
         public int    rotationDirection;
         public List<Vector3> tracePoints;
         public List<float>   traceAngles;
-        public List<float>   traceMarkerPhi;
         public List<float>   traceTimes;
-        public float  displayRefreshRate;   // headset's configured refresh, Hz
-        public float  measuredFrameRate;    // frames-during-tracing / duration, Hz
+        public float  displayRefreshRate;
+        public float  measuredFrameRate;
 
         public TraceRecord(int idx, int blk, int tib, float r1, float r2, float spd, int dir,
-                           List<Vector3> pts, List<float> angles, List<float> mphi, List<float> times,
+                           List<Vector3> pts, List<float> angles, List<float> times,
                            float dur, float refreshHz, float measuredHz)
         {
             trialIndex = idx; block = blk; trialInBlock = tib;
             R1 = r1; R2 = r2; rotationSpeed = spd; rotationDirection = dir;
-            tracePoints = pts; traceAngles = angles; traceMarkerPhi = mphi; traceTimes = times; duration = dur;
+            tracePoints = pts; traceAngles = angles; traceTimes = times; duration = dur;
             displayRefreshRate = refreshHz; measuredFrameRate = measuredHz;
+        }
+    }
+
+    private class CalibTraceRecord
+    {
+        public int           trialIndex;
+        public List<Vector3> trackerPositions;
+        public List<Vector3> groundTruthPositions;
+        public List<float>   nearestPhi;
+        public List<float>   modelRotY;
+        public List<float>   times;
+        public float         duration;
+
+        public CalibTraceRecord(int idx, List<Vector3> tracker, List<Vector3> groundTruth,
+                                List<float> phi, List<float> rotY, List<float> ts, float dur)
+        {
+            trialIndex           = idx;
+            trackerPositions     = tracker;
+            groundTruthPositions = groundTruth;
+            nearestPhi           = phi;
+            modelRotY            = rotY;
+            times                = ts;
+            duration             = dur;
         }
     }
 }
