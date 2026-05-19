@@ -18,9 +18,10 @@ public class RotatingTraceExperimentManager : MonoBehaviour
     [Tooltip("Number of most-recent recorded trace points shown as guide dots (right-eye only). " +
              "These are the same points saved to the CSV.")]
     public int   trailPointCount = 15;
-    [Tooltip("Diameter of each trail dot in world metres.")]
-    public float trailDotDiameter = 0.010f;
-    public Color trailColor = new Color(1f, 0.5f, 0f);  // amber
+    [Tooltip("Diameter of each trail dot in world metres. Independent of the finger-cursor dot size.")]
+    public float trailDotDiameter = 0.006f;
+    [Tooltip("Colour and opacity of trail dots. Alpha < 1 renders semi-transparently via the shader's Blend setting.")]
+    public Color trailColor = new Color(1f, 0.5f, 0f, 0.35f);  // amber, semi-transparent
 
     [Header("Hand Tracking / Tracing")]
     [Tooltip("VIVE Tracker pose source. Mounted on the participant's hand/finger.")]
@@ -41,6 +42,8 @@ public class RotatingTraceExperimentManager : MonoBehaviour
     [Header("3D Trace Calibration")]
     [Tooltip("Number of recorded 3D trace trials (plus one unrecorded practice trial that always runs first).")]
     public int calib3DTraceTrials = 3;
+    [Tooltip("Each 3D trace trial (practice and recorded) runs for this many seconds once the experimenter presses Start.")]
+    public float calib3DTrialDuration = 60f;
 
     [Header("UI")]
     public TextMeshProUGUI instructionText;
@@ -56,11 +59,11 @@ public class RotatingTraceExperimentManager : MonoBehaviour
     [Tooltip("Number of practice trials before the main session. Practice data is NOT saved.")]
     public int practiceTrials = 1;
     [Tooltip("Number of main trials. Each trial auto-stops after trialDuration seconds.")]
-    public int totalTrials = 3;
+    public int totalTrials = 10;
     [Tooltip("Each main trial runs for exactly this many seconds once the experimenter presses Start.")]
     public float trialDuration = 60f;
     [Tooltip("Automatically insert a break after this many completed main trials. Set to 0 to disable.")]
-    public int autoBreakInterval = 0;
+    public int autoBreakInterval = 5;
 
 
     // ─── Runtime state ─────────────────────────────────────────────────────
@@ -240,7 +243,7 @@ public class RotatingTraceExperimentManager : MonoBehaviour
     void BuildTrailDots()
     {
         var mat = new Material(Shader.Find("Custom/RightEyeOnly"));
-        mat.color = trailColor;
+        mat.color = trailColor;  // alpha < 1 gives transparency via Blend in shader
 
         for (int i = 0; i < trailPointCount; i++)
         {
@@ -427,17 +430,19 @@ public class RotatingTraceExperimentManager : MonoBehaviour
         yield return WaitSignalStart();
 
         calib3DPhase = true;
+        isRecording  = true;  // auto-start recording when the trial begins
         if (fingerCursor != null) { fingerCursor.ResetCursor(); fingerCursor.gameObject.SetActive(true); }
 
         float startTime = Time.time;
 
-        Explain($"{prefix}\n\nTrace along the curve.\nSay 'done' when you've completed several full rotations.");
+        Explain($"{prefix}\n\nTrace the curve continuously.\nThe trial will end automatically after {calib3DTrialDuration:F0} seconds.");
 
-        while (!signalDone)
+        while (Time.time - startTime < calib3DTrialDuration && !signalDone)
         {
+            float remaining = calib3DTrialDuration - (Time.time - startTime);
             SetStatus(isPractice
-                ? $"Calib3D practice — rec: {(isRecording ? "ON" : "off")} | pts: {currentCalibTrace.Count}"
-                : $"Calib3D {trialIdx + 1} — rec: {(isRecording ? "ON" : "off")} | pts: {currentCalibTrace.Count}");
+                ? $"Calib3D practice — {remaining:F0}s | pts: {currentCalibTrace.Count}"
+                : $"Calib3D {trialIdx + 1} — {remaining:F0}s | pts: {currentCalibTrace.Count}");
             yield return null;
         }
 
