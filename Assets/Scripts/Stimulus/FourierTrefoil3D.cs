@@ -26,6 +26,7 @@ public class FourierTrefoil3D : MonoBehaviour
     public bool adjustmentEnabled = true;
     public bool autoRotate = false;  // For automatic rotation during confirmation (Z-axis)
     public bool manualRotationMode = false;  // For manual exploration rotation (Y-axis)
+    public bool useZAxisRotation = false;    // When true, autoRotate spins around Z; else around Y
 
     private Mesh mesh;
     private float[] phiValues;  // φ values from CSV
@@ -127,7 +128,9 @@ public class FourierTrefoil3D : MonoBehaviour
         if (autoRotate)
         {
             currentRotationZ += rotationSpeed * Time.deltaTime * rotationDirection;
-            transform.localRotation = Quaternion.Euler(0, currentRotationZ, 0);
+            transform.localRotation = useZAxisRotation
+                ? Quaternion.Euler(0, 0, currentRotationZ)
+                : Quaternion.Euler(0, currentRotationZ, 0);
             return;
         }
 
@@ -250,24 +253,22 @@ public class FourierTrefoil3D : MonoBehaviour
         adjustmentEnabled = true;
     }
 
-    public void SetRotationMode(bool enable, float speed = 60f, int direction = 1)
+    public void SetRotationMode(bool enable, float speed = 60f, int direction = 1, bool zAxis = false)
     {
         if (enable)
         {
-            // Enable automatic rotation mode around Z-axis (matches 2D stimulus)
             autoRotate = true;
             manualRotationMode = false;
             adjustmentEnabled = false;
-            rotationSpeed = speed;  // Set rotation speed to match stimulus
-            rotationDirection = direction;  // Set rotation direction to match stimulus
-            // Don't reset currentRotationZ - start from current orientation
-            // Don't change amplitude - keep the adjusted value
+            rotationSpeed = speed;
+            rotationDirection = direction;
+            useZAxisRotation = zAxis;
             GenerateTubeMesh();
         }
         else
         {
-            // Disable rotation mode
             autoRotate = false;
+            useZAxisRotation = false;
             adjustmentEnabled = true;
         }
     }

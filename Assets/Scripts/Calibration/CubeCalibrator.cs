@@ -39,7 +39,7 @@ public class CubeCalibrator : MonoBehaviour
     void Update()
 {
     if (isRotating)
-        transform.Rotate(Vector3.up, rotSpeed * Time.deltaTime);
+        transform.Rotate(Vector3.forward, rotSpeed * Time.deltaTime);
 }
 
 public void StartRotating(float speed)
