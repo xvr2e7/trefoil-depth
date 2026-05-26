@@ -30,6 +30,7 @@ public class RotatingTraceExperimentManager : MonoBehaviour
     [Tooltip("Min distance (m) between recorded trace points.")]
     public float minTraceDistance = 0.001f;
 
+
     [Header("Calibration")]
     public TrefoilGenerator calibTrefoil;
     public FourierTrefoil3D  calibModel;
@@ -38,6 +39,11 @@ public class RotatingTraceExperimentManager : MonoBehaviour
     [Tooltip("Amplitude for the calibration 3D model. Must be positive to show the perceptually-correct " +
              "2-front/1-back cross-junction configuration that matches the SFM percept.")]
     public float calibAmplitude = 1.0f;
+
+    [Header("Cube Calibration")]
+    public CubeCalibrator calibrationCube;
+    [Tooltip("Rotation speed (deg/sec) for the rotating cube calibration.")]
+    public float cubeRotationSpeed = 30f;
 
     [Header("3D Trace Calibration")]
     [Tooltip("Number of recorded 3D trace trials (plus one unrecorded practice trial that always runs first).")]
@@ -296,6 +302,9 @@ public class RotatingTraceExperimentManager : MonoBehaviour
 
         Say("");
 
+        yield return RunCubeCalibration(rotating: false);
+        yield return RunCubeCalibration(rotating: true);
+        yield return RunStaticTrefoilCalibration();
         yield return RunCalibration();
         yield return RunCalibration3DTrace();
 
@@ -388,6 +397,58 @@ public class RotatingTraceExperimentManager : MonoBehaviour
         Explain("");
     }
 
+    IEnumerator RunStaticTrefoilCalibration()
+{
+    if (calibTrefoil == null) yield break;
+
+    calibTrefoil.SetParameters(R1, R2, 0f, 1);
+    calibTrefoil.SetShaderType(TrefoilGenerator.ShaderType.RightEyeOnly);
+    calibTrefoil.PauseRotation();
+    calibTrefoil.SetVisibility(true);
+
+    Explain("STATIC 2D TREFOIL CALIBRATION\n\nTrace along the curve with your finger.\nTell the experimenter when done.");
+    SetStatus("Static 2D trefoil calibration — waiting to begin");
+    yield return WaitSignalStart();
+
+    calibTrefoil.SetVisibility(false);
+    Explain("");
+    SetStatus("Static 2D trefoil calibration complete");
+}
+
+   IEnumerator RunCubeCalibration(bool rotating)
+    {
+        if (calibrationCube == null)
+        {
+            Debug.LogWarning("[RotatingTrace] No CubeCalibrator assigned, skipping.");
+            yield break;
+        }
+
+     string label = rotating ? "ROTATING CUBE CALIBRATION" : "STATIC CUBE CALIBRATION";
+        calibrationCube.SetVisibility(true);
+
+     if (rotating)
+        calibrationCube.StartRotating(cubeRotationSpeed);
+
+        Explain($"{label}\n\nTrace along the highlighted edges of the cube with your finger.\nThe experimenter will advance when each edge is complete.");
+        SetStatus($"{label} — waiting to begin");
+        yield return WaitSignalStart();
+
+        int[] edgesToTrace = { 0, 4, 8 };
+        foreach (int edgeIndex in edgesToTrace)
+        {
+            calibrationCube.HighlightEdge(edgeIndex);
+            Explain("Trace the YELLOW edge with your finger.\nTell the experimenter when done.");
+            SetStatus($"{label} — edge {edgeIndex}");
+            yield return WaitSignalStart();
+        }
+
+        calibrationCube.ClearHighlight();
+        if (rotating)
+            calibrationCube.StopRotating();
+        calibrationCube.SetVisibility(false);
+        Explain("");
+        SetStatus($"{label} complete");
+    }
 
     IEnumerator RunCalibration3DTrace()
     {
@@ -626,6 +687,7 @@ public class RotatingTraceExperimentManager : MonoBehaviour
         if (rotatingTrefoil != null) rotatingTrefoil.SetVisibility(false);
         if (calibTrefoil    != null) calibTrefoil.SetVisibility(false);
         if (calibModel      != null) calibModel.SetVisibility(false);
+        if (calibrationCube != null) calibrationCube.SetVisibility(false);
         if (fingerCursor    != null) fingerCursor.gameObject.SetActive(false);
         HideTrailDots();
     }

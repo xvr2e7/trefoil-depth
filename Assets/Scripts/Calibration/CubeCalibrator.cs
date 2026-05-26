@@ -18,6 +18,8 @@ public class CubeCalibrator : MonoBehaviour
 
     private LineRenderer[] edgeRenderers;
     private int highlightedEdgeIndex = -1;
+    private bool isRotating = false;
+    private float rotSpeed = 0f;
 
     // Cube has 12 edges
     private static readonly int[,] edgeIndices = new int[12, 2]
@@ -34,7 +36,23 @@ public class CubeCalibrator : MonoBehaviour
     {
         GenerateWireframeCube();
     }
+    void Update()
+{
+    if (isRotating)
+        transform.Rotate(Vector3.up, rotSpeed * Time.deltaTime);
+}
 
+public void StartRotating(float speed)
+{
+    rotSpeed = speed;
+    isRotating = true;
+}
+
+public void StopRotating()
+{
+    isRotating = false;
+    rotSpeed = 0f;
+}
     void GenerateWireframeCube()
     {
         // Calculate 8 vertices of the cube centered at origin

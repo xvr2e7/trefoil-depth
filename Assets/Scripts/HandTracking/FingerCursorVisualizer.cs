@@ -20,7 +20,7 @@ public class FingerCursorVisualizer : MonoBehaviour
     {
         meshRenderer = GetComponent<MeshRenderer>();
 
-        Material mat = new Material(Shader.Find("Custom/BinocularUnlit"));
+        Material mat = new Material(Shader.Find("Custom/RightEyeOnly"));
         mat.color = lightGreen;
         meshRenderer.material = mat;
 

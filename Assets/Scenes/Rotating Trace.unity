@@ -122,6 +122,55 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
+--- !u!1 &231239
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 231240}
+  - component: {fileID: 231241}
+  m_Layer: 0
+  m_Name: CubeCalibrator
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &231240
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 231239}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -0.11695715, y: 0.99049747, z: 1.046393}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &231241
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 231239}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ea7fdd46ef4dc4c15b5980e815fe7d84, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  edgeLength: 0.3
+  cubeColor: {r: 0, g: 0, b: 0, a: 1}
+  lineWidth: 0.005
+  highlightColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+  highlightWidth: 0.008
 --- !u!1 &218376406
 GameObject:
   m_ObjectHideFlags: 0
@@ -150,7 +199,7 @@ Transform:
   m_GameObject: {fileID: 218376406}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 1, z: 1}
+  m_LocalPosition: {x: 0, y: 1, z: 0.8}
   m_LocalScale: {x: 0.1, y: 0.1, z: 0.1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -175,6 +224,10 @@ MonoBehaviour:
   rotationSpeed: 90
   direction: 1
   shaderType: 1
+  useOcclusionDepth: 1
+  occlusionDepthScale: 0.005
+  curveBackColor: {r: 0.25, g: 0.25, b: 0.25, a: 1}
+  curveFrontColor: {r: 0.75, g: 0.75, b: 0.75, a: 1}
 --- !u!23 &218376409
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -257,7 +310,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   trackerProvider: {fileID: 1594264200}
-  cursorScale: 0.015
+  cursorScale: 0.01
   lightGreen: {r: 0.5, g: 1, b: 0.35, a: 1}
 --- !u!23 &226143858
 MeshRenderer:
@@ -615,6 +668,22 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 917008180412714956, guid: ac14acb975858cc49a6bd913388e6c62, type: 3}
+      propertyPath: orthographic
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 917008180412714956, guid: ac14acb975858cc49a6bd913388e6c62, type: 3}
+      propertyPath: m_BackGroundColor.b
+      value: 0.11320752
+      objectReference: {fileID: 0}
+    - target: {fileID: 917008180412714956, guid: ac14acb975858cc49a6bd913388e6c62, type: 3}
+      propertyPath: m_BackGroundColor.g
+      value: 0.11320752
+      objectReference: {fileID: 0}
+    - target: {fileID: 917008180412714956, guid: ac14acb975858cc49a6bd913388e6c62, type: 3}
+      propertyPath: m_BackGroundColor.r
+      value: 0.11320752
+      objectReference: {fileID: 0}
     - target: {fileID: 2360932920610514279, guid: ac14acb975858cc49a6bd913388e6c62, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0
@@ -824,7 +893,7 @@ Transform:
   m_GameObject: {fileID: 1326716255}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 1.005, z: 2}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -843,17 +912,19 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   rotatingTrefoil: {fileID: 218376408}
-  markerPrefab: {fileID: 0}
-  markerStartPhi: 0
-  markerSpeed: 0.6
-  markerScale: 0.025
-  markerOffset: 0.2
+  trailPointCount: 10
+  trailDotDiameter: 0.01
+  trailColor: {r: 1, g: 0.7627266, b: 0.5235849, a: 1}
   trackerProvider: {fileID: 1594264200}
   fingerCursor: {fileID: 226143857}
   minTraceDistance: 0.005
   calibTrefoil: {fileID: 218376408}
   calibModel: {fileID: 1707924144}
   calibModelRotationSpeed: 20
+  calibAmplitude: 1
+  calibrationCube: {fileID: 231241}
+  calib3DTraceTrials: 3
+  calib3DTrialDuration: 60
   instructionText: {fileID: 2133389898}
   explainText: {fileID: 827496338}
   R1: 1
@@ -861,8 +932,9 @@ MonoBehaviour:
   rotationSpeed: 30
   rotationDirection: 1
   practiceTrials: 1
-  totalTrials: 24
-  autoBreakInterval: 12
+  totalTrials: 10
+  trialDuration: 60
+  autoBreakInterval: 5
 --- !u!1 &1594264199
 GameObject:
   m_ObjectHideFlags: 0
@@ -1220,7 +1292,7 @@ Transform:
   m_GameObject: {fileID: 1707924143}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 1, z: 1}
+  m_LocalPosition: {x: 0, y: 1, z: 0.8}
   m_LocalScale: {x: 0.1, y: 0.1, z: 0.1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1612,3 +1684,4 @@ SceneRoots:
   - {fileID: 1326716256}
   - {fileID: 2063433915}
   - {fileID: 974917823}
+  - {fileID: 231240}
