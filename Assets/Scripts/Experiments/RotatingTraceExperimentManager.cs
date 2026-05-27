@@ -149,7 +149,6 @@ public class RotatingTraceExperimentManager : MonoBehaviour
     {
         // Keyboard shortcuts
         if (Input.GetKeyDown(KeyCode.Space)) signalStart = true;
-        if (Input.GetKeyDown(KeyCode.X))     isRecording = !isRecording;
         if (Input.GetKeyDown(KeyCode.B))     requestBreak = true;
 
         if (calibTracingPhase)
@@ -183,12 +182,6 @@ public class RotatingTraceExperimentManager : MonoBehaviour
 
         if (GUILayout.Button("Start / Advance  (Space)"))
             signalStart = true;
-
-        GUI.enabled = calibTracingPhase || tracingPhase;
-        string recLabel = isRecording ? "Stop Recording  (X)" : "Begin Recording  (X)";
-        if (GUILayout.Button(recLabel))
-            isRecording = !isRecording;
-        GUI.enabled = true;
 
         string breakLabel = requestBreak ? "Break queued ✓" : "Take Break After Current Trial  (B)";
         if (GUILayout.Button(breakLabel))
