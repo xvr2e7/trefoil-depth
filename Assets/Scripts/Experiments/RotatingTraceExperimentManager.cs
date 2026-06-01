@@ -423,6 +423,8 @@ public class RotatingTraceExperimentManager : MonoBehaviour
 
         calibrationCube.SetVisibility(true);
         if (rotating) calibrationCube.StartRotating(cubeRotationSpeed);
+        if (fingerCursor != null)
+            fingerCursor.EnableProximityFeedbackCube(calibrationCube);
 
         string label    = rotating ? "ROTATING CUBE" : "STATIC CUBE";
         string trialType = rotating ? "cube_rotating" : "cube_static";
@@ -432,8 +434,6 @@ public class RotatingTraceExperimentManager : MonoBehaviour
                 "Let the experimenter know when you're ready.");
         SetStatus($"{label} trial {trialIdx + 1}/{total} — waiting");
         yield return WaitSignalStart();
-        if (fingerCursor != null)
-            fingerCursor.EnableProximityFeedbackCube(calibrationCube);
         calibTracingPhase = true;
         isRecording = true;
         Explain("Trace all visible edges continuously — both square faces and the connecting edge.\n" +
@@ -516,18 +516,17 @@ public class RotatingTraceExperimentManager : MonoBehaviour
                 yield break;
         }
 
-        Explain("Position the green marker on any point on the curve.\n" +
-                "Let the experimenter know when you're ready.");
-        SetStatus($"{label} trial {trialIdx + 1}/{total} — waiting");
-        yield return WaitSignalStart();
-
-            if (fingerCursor != null)
-    {
+        if (fingerCursor != null)
+        {
             if (isCalib3D)
                 fingerCursor.EnableProximityFeedback3D(calibModel);
             else
                 fingerCursor.EnableProximityFeedback2D(rotatingTrefoil);
-    }
+        }
+        Explain("Position the green marker on any point on the curve.\n" +
+                "Let the experimenter know when you're ready.");
+        SetStatus($"{label} trial {trialIdx + 1}/{total} — waiting");
+        yield return WaitSignalStart();
         calibTracingPhase = true;
         isRecording = true;
         Explain("Trace the curve continuously, completing as many full cycles as you can.\n" +
