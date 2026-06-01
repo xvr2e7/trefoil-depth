@@ -423,7 +423,8 @@ public class RotatingTraceExperimentManager : MonoBehaviour
                 "Let the experimenter know when you're ready.");
         SetStatus($"{label} trial {trialIdx + 1}/{total} — waiting");
         yield return WaitSignalStart();
-
+        if (fingerCursor != null)
+            fingerCursor.EnableProximityFeedbackCube(calibrationCube);
         calibTracingPhase = true;
         isRecording = true;
         Explain("Trace the entire cube continuously.\n" +
@@ -509,10 +510,18 @@ public class RotatingTraceExperimentManager : MonoBehaviour
         SetStatus($"{label} trial {trialIdx + 1}/{total} — waiting");
         yield return WaitSignalStart();
 
+            if (fingerCursor != null)
+    {
+            if (isCalib3D)
+                fingerCursor.EnableProximityFeedback3D(calibModel);
+            else
+                fingerCursor.EnableProximityFeedback2D(rotatingTrefoil);
+    }
         calibTracingPhase = true;
         isRecording = true;
         Explain("Trace the curve continuously, completing as many full cycles as you can.\n" +
-                $"Recording stops automatically after {trialDuration:F0} seconds.");
+        "Keep the marker GREEN — stay as close to the curve as possible.\n" +
+        $"Recording stops automatically after {trialDuration:F0} seconds.");
 
         float startTime = Time.time;
         while (Time.time - startTime < trialDuration)
@@ -522,6 +531,7 @@ public class RotatingTraceExperimentManager : MonoBehaviour
             yield return null;
         }
 
+        if (fingerCursor != null) fingerCursor.DisableProximityFeedback();
         isRecording = false;
         calibTracingPhase = false;
 
