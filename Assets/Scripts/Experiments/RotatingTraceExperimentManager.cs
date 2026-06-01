@@ -58,7 +58,7 @@ public class RotatingTraceExperimentManager : MonoBehaviour
     [Tooltip("Number of main trials.")]
     public int totalTrials = 10;
     [Tooltip("Duration of every recorded trial in seconds (calibration and main). Auto-stops after this time.")]
-    public float trialDuration = 30f;
+    public float trialDuration = 60f;
     [Tooltip("Automatically insert a break after this many completed main trials. Set to 0 to disable.")]
     public int autoBreakInterval = 5;
 
@@ -82,12 +82,14 @@ public class RotatingTraceExperimentManager : MonoBehaviour
     private List<float>       currentCalibPhi     = new List<float>();   // 3D trials only
     private List<float>       currentCalibRotY    = new List<float>();   // rotating 3D only
     private List<float>       currentCalibT       = new List<float>();
+    private List<float>       currentCalibDist    = new List<float>();   // distance-to-target at each calib point
     private Vector3 lastCalibPos;
 
     // Experimenter-driven flags
     private bool signalStart = false;
     private bool isRecording = false;
     private bool requestBreak = false;
+    private bool dataSaved = false;
 
     // Active phase flags
     private bool tracingPhase     = false;  // main / practice trial (step 9)
@@ -295,11 +297,16 @@ public class RotatingTraceExperimentManager : MonoBehaviour
         // ── Step 2: Cube Calibration Tutorial ──
         SetStatus("Cube calibration — tutorial");
         Explain("CUBE CALIBRATION TASK\n\n" +
-                "You will trace the edges of a wireframe cube with your hand.\n\n" +
+                "You will trace the visible edges of a wireframe cube with your hand.\n\n" +
+                "The cube has two square faces connected by four vertical edges.\n" +
+                "Three of those connecting edges are dimmed — you only need to\n" +
+                "trace both faces and the one clearly visible connecting edge.\n\n" +
                 "At the start of each trial:\n" +
-                "  • Position the green marker on any vertex or edge of the cube\n" +
+                "  • Position the green marker on any visible vertex or edge\n" +
                 "  • Let the experimenter know you're ready\n\n" +
-                $"You will then trace the entire cube continuously for {trialDuration:F0} seconds.\n\n" +
+                $"You will then trace the visible edges continuously for {trialDuration:F0} seconds.\n\n" +
+                "The marker turns YELLOW if you stray too far from an edge.\n" +
+                "Try to keep it GREEN throughout the trial.\n\n" +
                 "The experimenter will advance when you're ready to begin.");
         yield return WaitSignalStart();
         Explain("");
@@ -323,10 +330,12 @@ public class RotatingTraceExperimentManager : MonoBehaviour
         Explain("TREFOIL CALIBRATION TASK\n\n" +
                 "You will now trace the curve of a trefoil (a shape with three lobes).\n\n" +
                 "At the start of each trial:\n" +
-                "  • Position the green marker on any point on the curve\n" +
+                "  • Place the green marker on any point on the curve\n" +
                 "  • Let the experimenter know you're ready\n\n" +
                 $"You will then trace the curve continuously for {trialDuration:F0} seconds,\n" +
                 "completing as many full cycles as you can.\n\n" +
+                "The marker turns YELLOW if you stray too far from the curve.\n" +
+                "Try to keep it GREEN throughout the trial.\n\n" +
                 "The experimenter will advance when you're ready to begin.");
         yield return WaitSignalStart();
         Explain("");
@@ -419,7 +428,7 @@ public class RotatingTraceExperimentManager : MonoBehaviour
         string trialType = rotating ? "cube_rotating" : "cube_static";
         int    total    = calibTrialCount;
 
-        Explain("Position the green marker on any vertex or edge of the cube.\n" +
+        Explain("Position the green marker on any visible vertex or edge of the cube.\n" +
                 "Let the experimenter know when you're ready.");
         SetStatus($"{label} trial {trialIdx + 1}/{total} — waiting");
         yield return WaitSignalStart();
@@ -427,7 +436,8 @@ public class RotatingTraceExperimentManager : MonoBehaviour
             fingerCursor.EnableProximityFeedbackCube(calibrationCube);
         calibTracingPhase = true;
         isRecording = true;
-        Explain("Trace the entire cube continuously.\n" +
+        Explain("Trace all visible edges continuously — both square faces and the connecting edge.\n" +
+                "Keep the marker GREEN — stay as close to the edges as possible.\n" +
                 $"Recording stops automatically after {trialDuration:F0} seconds.");
 
         float startTime = Time.time;
@@ -438,6 +448,7 @@ public class RotatingTraceExperimentManager : MonoBehaviour
             yield return null;
         }
 
+        if (fingerCursor != null) fingerCursor.DisableProximityFeedback();
         isRecording = false;
         calibTracingPhase = false;
         if (rotating) calibrationCube.StopRotating();
@@ -447,7 +458,7 @@ public class RotatingTraceExperimentManager : MonoBehaviour
         calibRecords.Add(new CalibRecord(trialType, trialIdx,
             new List<Vector3>(currentCalibPos),
             new List<Vector3>(), new List<float>(), new List<float>(),
-            new List<float>(currentCalibT), duration));
+            new List<float>(currentCalibT), new List<float>(currentCalibDist), duration));
 
         Explain("Trial complete.\nThe experimenter will continue when you're ready.");
         SetStatus($"{label} {trialIdx + 1} done — {currentCalibPos.Count} pts");
@@ -550,7 +561,7 @@ public class RotatingTraceExperimentManager : MonoBehaviour
             isCalib3D ? new List<Vector3>(currentCalibNearest) : new List<Vector3>(),
             isCalib3D ? new List<float>(currentCalibPhi)      : new List<float>(),
             isCalib3D ? new List<float>(currentCalibRotY)     : new List<float>(),
-            new List<float>(currentCalibT), duration));
+            new List<float>(currentCalibT), new List<float>(currentCalibDist), duration));
 
         Explain("Trial complete.\nThe experimenter will continue when you're ready.");
         SetStatus($"{label} {trialIdx + 1} done — {currentCalibPos.Count} pts");
@@ -658,6 +669,9 @@ public class RotatingTraceExperimentManager : MonoBehaviour
         currentCalibPos.Add(worldPos);
         currentCalibT.Add(Time.time);
 
+        float dist = fingerCursor != null ? fingerCursor.GetDistanceToCurve(worldPos) : float.MaxValue;
+        currentCalibDist.Add(dist);
+
         if (isCalib3D && calibModel != null)
         {
             Vector3 nearest = calibModel.GetNearestCurveWorldPoint(worldPos, out float phi);
@@ -703,6 +717,7 @@ public class RotatingTraceExperimentManager : MonoBehaviour
         currentCalibPhi.Clear();
         currentCalibRotY.Clear();
         currentCalibT.Clear();
+        currentCalibDist.Clear();
     }
 
     IEnumerator WaitSignalStart()
@@ -732,6 +747,8 @@ public class RotatingTraceExperimentManager : MonoBehaviour
 
     void SaveData()
     {
+        if (dataSaved) return;
+        dataSaved = true;
         string timestamp = System.DateTime.Now.ToString("yyyyMMdd_HHmmss");
         SaveMainData(timestamp);
         SaveCalibData(timestamp);
@@ -769,25 +786,31 @@ public class RotatingTraceExperimentManager : MonoBehaviour
 
         string path = Path.Combine(Application.persistentDataPath, $"RotatingTrace_Calib_{timestamp}.csv");
         var csv = new StringBuilder();
+        float threshold = fingerCursor != null ? fingerCursor.proximityThreshold : 0.02f;
         csv.AppendLine("TrialType,TrialIndex,PointIndex," +
                        "WorldX,WorldY,WorldZ," +
                        "NearestCurveX,NearestCurveY,NearestCurveZ," +
-                       "NearestPhi,ModelRotYDeg,TimeStamp,TrialDuration");
+                       "NearestPhi,ModelRotYDeg," +
+                       "DistanceToCurve,IsOnCurve,TimeStamp,TrialDuration");
 
         foreach (var rec in calibRecords)
         {
             bool has3D = rec.nearestPositions.Count > 0;
             for (int i = 0; i < rec.trackerPositions.Count; i++)
             {
-                Vector3 p  = rec.trackerPositions[i];
-                Vector3 np = has3D && i < rec.nearestPositions.Count ? rec.nearestPositions[i] : Vector3.zero;
-                float   ph = has3D && i < rec.phi.Count     ? rec.phi[i]      : 0f;
-                float   ry = has3D && i < rec.modelRotY.Count ? rec.modelRotY[i] : 0f;
-                float   t  = i < rec.times.Count ? rec.times[i] : 0f;
+                Vector3 p    = rec.trackerPositions[i];
+                Vector3 np   = has3D && i < rec.nearestPositions.Count ? rec.nearestPositions[i] : Vector3.zero;
+                float   ph   = has3D && i < rec.phi.Count              ? rec.phi[i]              : 0f;
+                float   ry   = has3D && i < rec.modelRotY.Count        ? rec.modelRotY[i]        : 0f;
+                float   dist = i < rec.distanceToCurve.Count           ? rec.distanceToCurve[i]  : float.MaxValue;
+                int     onC  = dist <= threshold ? 1 : 0;
+                string  distStr = dist == float.MaxValue ? "" : dist.ToString("F4");
+                float   t    = i < rec.times.Count ? rec.times[i] : 0f;
                 csv.AppendLine($"{rec.trialType},{rec.trialIndex},{i}," +
                                $"{p.x:F4},{p.y:F4},{p.z:F4}," +
                                $"{np.x:F4},{np.y:F4},{np.z:F4}," +
-                               $"{ph:F4},{ry:F2},{t:F3},{rec.duration:F2}");
+                               $"{ph:F4},{ry:F2}," +
+                               $"{distStr},{onC},{t:F3},{rec.duration:F2}");
             }
         }
 
@@ -829,12 +852,13 @@ public class RotatingTraceExperimentManager : MonoBehaviour
         public List<float>   phi;              // non-empty for 3D trials only
         public List<float>   modelRotY;        // non-empty for rotating 3D only
         public List<float>   times;
+        public List<float>   distanceToCurve;  // per-point distance to nearest visible edge/curve
         public float         duration;
 
         public CalibRecord(string type, int idx,
                            List<Vector3> tracker, List<Vector3> nearest,
                            List<float> phis, List<float> rotY,
-                           List<float> ts, float dur)
+                           List<float> ts, List<float> dists, float dur)
         {
             trialType        = type;
             trialIndex       = idx;
@@ -843,6 +867,7 @@ public class RotatingTraceExperimentManager : MonoBehaviour
             phi              = phis;
             modelRotY        = rotY;
             times            = ts;
+            distanceToCurve  = dists;
             duration         = dur;
         }
     }

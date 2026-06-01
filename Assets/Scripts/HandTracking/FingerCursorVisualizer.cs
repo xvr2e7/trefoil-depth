@@ -57,7 +57,7 @@ public class FingerCursorVisualizer : MonoBehaviour
         }
     }
 
-        float GetDistanceToCurve(Vector3 pos)
+    public float GetDistanceToCurve(Vector3 pos)
     {
         float minDist = float.MaxValue;
 
