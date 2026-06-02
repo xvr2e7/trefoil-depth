@@ -56,12 +56,10 @@ public class FingerCursorVisualizer : MonoBehaviour
             Color c;
             if (dist <= proximityThreshold)
                 c = onCurveColor;
-            else if (proximityCube != null)
-                c = neutralColor;           // cube edges run in all directions — z-comparison meaningless
             else if (pos.z < nearest.z)
-                c = underreachColor;        // yellow: not deep enough (trefoil only)
+                c = underreachColor;        // yellow: not deep enough in z
             else
-                c = overreachColor;         // red: too deep (trefoil only)
+                c = overreachColor;         // red: too deep in z
             meshRenderer.material.color = c;
         }
     }

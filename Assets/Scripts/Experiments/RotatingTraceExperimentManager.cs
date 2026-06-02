@@ -302,12 +302,12 @@ public class RotatingTraceExperimentManager : MonoBehaviour
                 "Three of those connecting edges are dimmed — you only need to\n" +
                 "trace both faces and the one clearly visible connecting edge.\n\n" +
                 "At the start of each trial:\n" +
-                "  • Position the BLUE marker on any visible vertex or edge\n" +
+                "  • Position the GREEN marker on any visible vertex or edge\n" +
                 "  • Let the experimenter know you're ready\n\n" +
                 $"You will then trace the visible edges continuously for {trialDuration:F0} seconds.\n\n" +
-                "The marker is BLUE when on an edge.\n" +
+                "The marker is GREEN when on an edge.\n" +
                 "It turns YELLOW if you are not reaching far enough, RED if reaching too far.\n" +
-                "Try to keep it BLUE throughout the trial.\n\n" +
+                "Try to keep it GREEN throughout the trial.\n\n" +
                 "The experimenter will advance when you're ready to begin.");
         yield return WaitSignalStart();
         Explain("");
