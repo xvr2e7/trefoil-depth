@@ -8,13 +8,14 @@ public class FingerCursorVisualizer : MonoBehaviour
 
     [Header("Appearance")]
     public float cursorScale = 0.015f;
-    public Color onCurveColor    = new Color(0.1f, 0.45f, 1.0f);    // blue  — neutral / on-curve
+    public Color neutralColor     = new Color(0.1f, 0.45f, 1.0f);    // blue  — idle / no feedback
+    public Color onCurveColor    = new Color(0.15f, 0.85f, 0.2f);   // green — on-curve (within threshold)
     public Color underreachColor = new Color(1f, 0.92f, 0.016f);    // yellow — not deep enough
     public Color overreachColor  = new Color(1f, 0.15f, 0.1f);      // red   — too deep
     private static readonly Color ConfirmedColor = new Color(0.05f, 0.55f, 0.1f); // dark green — frozen confirm
 
     [Header("Proximity Feedback")]
-    [Tooltip("Distance threshold in meters. Within this = on-curve (blue), outside = depth-directional.")]
+    [Tooltip("Distance threshold in meters. Within this = on-curve (green), outside = depth-directional (yellow/red).")]
     public float proximityThreshold = 0.02f;
 
     private MeshRenderer meshRenderer;
@@ -28,7 +29,7 @@ public class FingerCursorVisualizer : MonoBehaviour
     {
         meshRenderer = GetComponent<MeshRenderer>();
         Material mat = new Material(Shader.Find("Custom/RightEyeOnly"));
-        mat.color = onCurveColor;
+        mat.color = neutralColor;
         meshRenderer.material = mat;
         transform.localScale = Vector3.one * cursorScale;
         gameObject.SetActive(false);
@@ -38,7 +39,7 @@ public class FingerCursorVisualizer : MonoBehaviour
     {
         frozen = false;
         if (meshRenderer != null)
-            meshRenderer.material.color = onCurveColor;
+            meshRenderer.material.color = neutralColor;
     }
 
     void Update()
@@ -54,7 +55,7 @@ public class FingerCursorVisualizer : MonoBehaviour
             GetNearestCurvePoint(pos, out Vector3 nearest, out float dist);
             Color c;
             if (dist <= proximityThreshold)
-                c = onCurveColor;           // blue: on the curve
+                c = onCurveColor;           // green: on the curve
             else if (pos.z < nearest.z)
                 c = underreachColor;        // yellow: not reaching far enough in depth
             else
@@ -147,7 +148,7 @@ public class FingerCursorVisualizer : MonoBehaviour
         proximityTrefoil3D = null;
         proximityCube = null;
         if (meshRenderer != null)
-            meshRenderer.material.color = onCurveColor;
+            meshRenderer.material.color = neutralColor;
     }
 
     public void SetConfirmed(Vector3 pos)
@@ -161,7 +162,7 @@ public class FingerCursorVisualizer : MonoBehaviour
     {
         frozen = false;
         if (meshRenderer != null)
-            meshRenderer.material.color = onCurveColor;
+            meshRenderer.material.color = neutralColor;
     }
 
     public bool TryGetIndexTipPosition(out Vector3 pos)
