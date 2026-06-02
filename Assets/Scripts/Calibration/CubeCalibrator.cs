@@ -35,19 +35,6 @@ public class CubeCalibrator : MonoBehaviour
     {
         if (isRotating)
             transform.Rotate(Vector3.forward, rotSpeed * Time.deltaTime);
-        UpdatePolylinePositions();
-    }
-
-    void UpdatePolylinePositions()
-    {
-        if (outlineRenderer == null || localVertices == null) return;
-        for (int i = 0; i < polylineOrder.Length; i++)
-            outlineRenderer.SetPosition(i, transform.TransformPoint(localVertices[polylineOrder[i]]));
-        for (int i = 0; i < 3; i++)
-        {
-            secondaryRenderers[i].SetPosition(0, transform.TransformPoint(localVertices[secondaryVerts[i, 0]]));
-            secondaryRenderers[i].SetPosition(1, transform.TransformPoint(localVertices[secondaryVerts[i, 1]]));
-        }
     }
 
     void BuildCube()
@@ -71,8 +58,10 @@ public class CubeCalibrator : MonoBehaviour
         outlineObj.transform.localPosition = Vector3.zero;
         outlineObj.transform.localRotation = Quaternion.identity;
         outlineRenderer = outlineObj.AddComponent<LineRenderer>();
-        outlineRenderer.useWorldSpace = true;
+        outlineRenderer.useWorldSpace = false;
         outlineRenderer.positionCount = polylineOrder.Length;
+        for (int i = 0; i < polylineOrder.Length; i++)
+            outlineRenderer.SetPosition(i, localVertices[polylineOrder[i]]);
         outlineRenderer.material = new Material(Shader.Find("Sprites/Default"));
         outlineRenderer.startColor = outlineRenderer.endColor = cubeColor;
         outlineRenderer.startWidth = outlineRenderer.endWidth = lineWidth;
@@ -87,15 +76,15 @@ public class CubeCalibrator : MonoBehaviour
             secObj.transform.localPosition = Vector3.zero;
             secObj.transform.localRotation = Quaternion.identity;
             LineRenderer lr = secObj.AddComponent<LineRenderer>();
-            lr.useWorldSpace = true;
+            lr.useWorldSpace = false;
             lr.positionCount = 2;
+            lr.SetPosition(0, localVertices[secondaryVerts[i, 0]]);
+            lr.SetPosition(1, localVertices[secondaryVerts[i, 1]]);
             lr.material = new Material(Shader.Find("Sprites/Default"));
             lr.startColor = lr.endColor = dimColor;
             lr.startWidth = lr.endWidth = dimWidth;
             secondaryRenderers[i] = lr;
         }
-
-        UpdatePolylinePositions();
     }
 
     public void StartRotating(float speed) { rotSpeed = speed; isRotating = true; }
