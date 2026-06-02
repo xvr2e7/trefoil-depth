@@ -8,33 +8,28 @@ public class CubeCalibrator : MonoBehaviour
     public Color cubeColor = Color.black;
     public float lineWidth = 0.005f;
 
-    [Header("Edge Highlighting")]
-    public Color highlightColor = Color.yellow;
-    public float highlightWidth = 0.008f;
+    [Header("Secondary Edges")]
     public Color dimColor = new Color(0.5f, 0.5f, 0.5f, 0.3f);
     public float dimWidth = 0.002f;
 
-    private LineRenderer[] edgeRenderers;
-    private int highlightedEdgeIndex = -1;
+    [Header("Edge Highlighting")]
+    public Color highlightColor = Color.yellow;
+    public float highlightWidth = 0.008f;
+
+    // Polyline through all 9 primary edges: front face → connecting edge → back face
+    private static readonly int[] polylineOrder = { 0, 1, 2, 3, 0, 4, 5, 6, 7, 4 };
+
+    // Secondary dim depth edges (the 3 not in the primary polyline): v1→v5, v2→v6, v3→v7
+    private static readonly int[,] secondaryVerts = { { 1, 5 }, { 2, 6 }, { 3, 7 } };
+
+    private Vector3[] localVertices;
+    private LineRenderer outlineRenderer;
+    private LineRenderer[] secondaryRenderers;
+
     private bool isRotating = false;
     private float rotSpeed = 0f;
 
-   
-    private static readonly int[,] edgeIndices = new int[12, 2]
-    {
-        {0, 1}, {1, 2}, {2, 3}, {3, 0},   
-        {4, 5}, {5, 6}, {6, 7}, {7, 4},   
-        {0, 4}, {1, 5}, {2, 6}, {3, 7}   
-    };
-
-    
-    private static readonly int[] primaryEdges   = { 0, 1, 2, 3, 4, 5, 6, 7, 8 };
-    private static readonly int[] secondaryEdges = { 9, 10, 11 };
-
-    void Start()
-    {
-        GenerateWireframeCube();
-    }
+    void Start() => BuildCube();
 
     void Update()
     {
@@ -42,133 +37,120 @@ public class CubeCalibrator : MonoBehaviour
             transform.Rotate(Vector3.forward, rotSpeed * Time.deltaTime);
     }
 
-    public void StartRotating(float speed)
+    void BuildCube()
     {
-        rotSpeed = speed;
-        isRotating = true;
-    }
-
-    public void StopRotating()
-    {
-        isRotating = false;
-        rotSpeed = 0f;
-    }
-
-    void GenerateWireframeCube()
-    {
-        Vector3[] vertices = new Vector3[8];
-        float half = edgeLength * 0.5f;
-
-        vertices[0] = new Vector3(-half, -half, -half);
-        vertices[1] = new Vector3( half, -half, -half);
-        vertices[2] = new Vector3( half,  half, -half);
-        vertices[3] = new Vector3(-half,  half, -half);
-        vertices[4] = new Vector3(-half, -half,  half);
-        vertices[5] = new Vector3( half, -half,  half);
-        vertices[6] = new Vector3( half,  half,  half);
-        vertices[7] = new Vector3(-half,  half,  half);
-
-        edgeRenderers = new LineRenderer[12];
-
-        for (int i = 0; i < 12; i++)
+        float h = edgeLength * 0.5f;
+        localVertices = new Vector3[]
         {
-            GameObject edgeObj = new GameObject($"Edge_{i}");
-            edgeObj.transform.SetParent(transform);
-            edgeObj.transform.localPosition = Vector3.zero;
-            edgeObj.transform.localRotation = Quaternion.identity;
+            new Vector3(-h, -h, -h), // 0 front-left-bottom
+            new Vector3( h, -h, -h), // 1 front-right-bottom
+            new Vector3( h,  h, -h), // 2 front-right-top
+            new Vector3(-h,  h, -h), // 3 front-left-top
+            new Vector3(-h, -h,  h), // 4 back-left-bottom
+            new Vector3( h, -h,  h), // 5 back-right-bottom
+            new Vector3( h,  h,  h), // 6 back-right-top
+            new Vector3(-h,  h,  h), // 7 back-left-top
+        };
 
-            LineRenderer lr = edgeObj.AddComponent<LineRenderer>();
-            lr.positionCount = 2;
-            lr.material = new Material(Shader.Find("Sprites/Default"));
+        // Single LineRenderer for the 9 primary edges as one continuous path
+        GameObject outlineObj = new GameObject("CubeOutline");
+        outlineObj.transform.SetParent(transform);
+        outlineObj.transform.localPosition = Vector3.zero;
+        outlineObj.transform.localRotation = Quaternion.identity;
+        outlineRenderer = outlineObj.AddComponent<LineRenderer>();
+        outlineRenderer.useWorldSpace = false;
+        outlineRenderer.positionCount = polylineOrder.Length;
+        for (int i = 0; i < polylineOrder.Length; i++)
+            outlineRenderer.SetPosition(i, localVertices[polylineOrder[i]]);
+        outlineRenderer.material = new Material(Shader.Find("Sprites/Default"));
+        outlineRenderer.startColor = outlineRenderer.endColor = cubeColor;
+        outlineRenderer.startWidth = outlineRenderer.endWidth = lineWidth;
+        outlineRenderer.numCornerVertices = 4;
+
+        // Three dim secondary depth edges
+        secondaryRenderers = new LineRenderer[3];
+        for (int i = 0; i < 3; i++)
+        {
+            GameObject secObj = new GameObject($"SecondaryEdge_{i}");
+            secObj.transform.SetParent(transform);
+            secObj.transform.localPosition = Vector3.zero;
+            secObj.transform.localRotation = Quaternion.identity;
+            LineRenderer lr = secObj.AddComponent<LineRenderer>();
             lr.useWorldSpace = false;
-
-            int v0 = edgeIndices[i, 0];
-            int v1 = edgeIndices[i, 1];
-            lr.SetPosition(0, vertices[v0]);
-            lr.SetPosition(1, vertices[v1]);
-
-            // Secondary edges start dim
-            bool isDim = System.Array.IndexOf(secondaryEdges, i) >= 0;
-            lr.startColor = isDim ? dimColor : cubeColor;
-            lr.endColor   = isDim ? dimColor : cubeColor;
-            lr.startWidth = isDim ? dimWidth : lineWidth;
-            lr.endWidth   = isDim ? dimWidth : lineWidth;
-
-            edgeRenderers[i] = lr;
+            lr.positionCount = 2;
+            lr.SetPosition(0, localVertices[secondaryVerts[i, 0]]);
+            lr.SetPosition(1, localVertices[secondaryVerts[i, 1]]);
+            lr.material = new Material(Shader.Find("Sprites/Default"));
+            lr.startColor = lr.endColor = dimColor;
+            lr.startWidth = lr.endWidth = dimWidth;
+            secondaryRenderers[i] = lr;
         }
     }
+
+    public void StartRotating(float speed) { rotSpeed = speed; isRotating = true; }
+    public void StopRotating() { isRotating = false; rotSpeed = 0f; }
 
     public void SetVisibility(bool visible)
     {
-        if (edgeRenderers == null) return;
-        foreach (var lr in edgeRenderers)
-            if (lr != null) lr.enabled = visible;
+        if (outlineRenderer != null) outlineRenderer.enabled = visible;
+        if (secondaryRenderers != null)
+            foreach (var lr in secondaryRenderers)
+                if (lr != null) lr.enabled = visible;
     }
 
-    public void HighlightEdge(int edgeIndex)
+    // Returns the nearest point on the primary polyline in world space.
+    public Vector3 GetNearestCurveWorldPoint(Vector3 worldPos)
     {
-        // Reset previous highlight
-        if (highlightedEdgeIndex >= 0 && highlightedEdgeIndex < edgeRenderers.Length)
+        float minDist = float.MaxValue;
+        Vector3 nearest = worldPos;
+        for (int i = 0; i < polylineOrder.Length - 1; i++)
         {
-            bool wasDim = System.Array.IndexOf(secondaryEdges, highlightedEdgeIndex) >= 0;
-            edgeRenderers[highlightedEdgeIndex].startColor = wasDim ? dimColor : cubeColor;
-            edgeRenderers[highlightedEdgeIndex].endColor   = wasDim ? dimColor : cubeColor;
-            edgeRenderers[highlightedEdgeIndex].startWidth = wasDim ? dimWidth : lineWidth;
-            edgeRenderers[highlightedEdgeIndex].endWidth   = wasDim ? dimWidth : lineWidth;
+            Vector3 segStart = transform.TransformPoint(localVertices[polylineOrder[i]]);
+            Vector3 segEnd   = transform.TransformPoint(localVertices[polylineOrder[i + 1]]);
+            Vector3 segDir   = (segEnd - segStart).normalized;
+            float   segLen   = Vector3.Distance(segStart, segEnd);
+            float   proj     = Mathf.Clamp(Vector3.Dot(worldPos - segStart, segDir), 0f, segLen);
+            Vector3 closest  = segStart + segDir * proj;
+            float   d        = Vector3.Distance(worldPos, closest);
+            if (d < minDist) { minDist = d; nearest = closest; }
         }
-
-        if (edgeIndex >= 0 && edgeIndex < edgeRenderers.Length)
-        {
-            edgeRenderers[edgeIndex].startColor = highlightColor;
-            edgeRenderers[edgeIndex].endColor   = highlightColor;
-            edgeRenderers[edgeIndex].startWidth = highlightWidth;
-            edgeRenderers[edgeIndex].endWidth   = highlightWidth;
-            highlightedEdgeIndex = edgeIndex;
-        }
-        else
-        {
-            highlightedEdgeIndex = -1;
-        }
+        return nearest;
     }
 
-    public void ClearHighlight()
-    {
-        HighlightEdge(-1);
-    }
+    // Kept for HandTrackingExperimentManager — stub until that scene is updated.
+    public void HighlightEdge(int edgeIndex) { }
+    public void ClearHighlight() { }
 
+    public float GetEdgeLength() => edgeLength;
+
+    // Legacy accessors used by CalculateMotorError.
     public Vector3 GetEdgeStart(int edgeIndex)
     {
-        if (edgeIndex < 0 || edgeIndex >= edgeRenderers.Length) return Vector3.zero;
-        return transform.TransformPoint(edgeRenderers[edgeIndex].GetPosition(0));
+        if (localVertices == null || edgeIndex < 0) return Vector3.zero;
+        int v = polylineOrder[Mathf.Clamp(edgeIndex, 0, polylineOrder.Length - 1)];
+        return transform.TransformPoint(localVertices[v]);
     }
 
     public Vector3 GetEdgeEnd(int edgeIndex)
     {
-        if (edgeIndex < 0 || edgeIndex >= edgeRenderers.Length) return Vector3.zero;
-        return transform.TransformPoint(edgeRenderers[edgeIndex].GetPosition(1));
+        if (localVertices == null || edgeIndex < 0) return Vector3.zero;
+        int v = polylineOrder[Mathf.Clamp(edgeIndex + 1, 0, polylineOrder.Length - 1)];
+        return transform.TransformPoint(localVertices[v]);
     }
-
-    public float GetEdgeLength() => edgeLength;
-    public int GetEdgeCount() => 12;
 
     public float CalculateMotorError(int edgeIndex, List<Vector3> tracedPoints)
     {
-        if (edgeIndex < 0 || edgeIndex >= edgeRenderers.Length || tracedPoints.Count == 0)
-            return 0f;
-
+        if (tracedPoints.Count == 0) return 0f;
         Vector3 edgeStart = GetEdgeStart(edgeIndex);
         Vector3 edgeEnd   = GetEdgeEnd(edgeIndex);
         Vector3 edgeDir   = (edgeEnd - edgeStart).normalized;
         float totalError  = 0f;
-
         foreach (Vector3 point in tracedPoints)
         {
-            Vector3 toPoint = point - edgeStart;
-            float projection = Vector3.Dot(toPoint, edgeDir);
-            Vector3 closest = edgeStart + edgeDir * Mathf.Clamp(projection, 0, edgeLength);
+            float   proj    = Vector3.Dot(point - edgeStart, edgeDir);
+            Vector3 closest = edgeStart + edgeDir * Mathf.Clamp(proj, 0, edgeLength);
             totalError += Vector3.Distance(point, closest);
         }
-
         return totalError / tracedPoints.Count;
     }
 }

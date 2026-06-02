@@ -55,11 +55,13 @@ public class FingerCursorVisualizer : MonoBehaviour
             GetNearestCurvePoint(pos, out Vector3 nearest, out float dist);
             Color c;
             if (dist <= proximityThreshold)
-                c = onCurveColor;           // green: on the curve
+                c = onCurveColor;
+            else if (proximityCube != null)
+                c = neutralColor;           // cube edges run in all directions — z-comparison meaningless
             else if (pos.z < nearest.z)
-                c = underreachColor;        // yellow: not reaching far enough in depth
+                c = underreachColor;        // yellow: not deep enough (trefoil only)
             else
-                c = overreachColor;         // red: reaching too far in depth
+                c = overreachColor;         // red: too deep (trefoil only)
             meshRenderer.material.color = c;
         }
     }
@@ -99,18 +101,9 @@ public class FingerCursorVisualizer : MonoBehaviour
 
         if (proximityCube != null)
         {
-            for (int i = 0; i < proximityCube.GetEdgeCount(); i++)
-            {
-                Vector3 edgeStart = proximityCube.GetEdgeStart(i);
-                Vector3 edgeEnd   = proximityCube.GetEdgeEnd(i);
-                Vector3 edgeDir   = (edgeEnd - edgeStart).normalized;
-                float   edgeLen   = Vector3.Distance(edgeStart, edgeEnd);
-                Vector3 toPos     = pos - edgeStart;
-                float   proj      = Mathf.Clamp(Vector3.Dot(toPos, edgeDir), 0f, edgeLen);
-                Vector3 closest   = edgeStart + edgeDir * proj;
-                float   d         = Vector3.Distance(pos, closest);
-                if (d < minDist) { minDist = d; minPt = closest; }
-            }
+            Vector3 np = proximityCube.GetNearestCurveWorldPoint(pos);
+            float d = Vector3.Distance(pos, np);
+            if (d < minDist) { minDist = d; minPt = np; }
         }
 
         nearest = minPt;
