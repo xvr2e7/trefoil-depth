@@ -8,12 +8,13 @@ public class FingerCursorVisualizer : MonoBehaviour
 
     [Header("Appearance")]
     public float cursorScale = 0.015f;
-    public Color onCurveColor  = new Color(0.5f, 1f, 0.35f);   
-    public Color offCurveColor = new Color(1f, 0.92f, 0.016f); 
-    private static readonly Color DarkGreen = new Color(0.05f, 0.55f, 0.1f);
+    public Color onCurveColor    = new Color(0.1f, 0.45f, 1.0f);    // blue  — neutral / on-curve
+    public Color underreachColor = new Color(1f, 0.92f, 0.016f);    // yellow — not deep enough
+    public Color overreachColor  = new Color(1f, 0.15f, 0.1f);      // red   — too deep
+    private static readonly Color ConfirmedColor = new Color(0.05f, 0.55f, 0.1f); // dark green — frozen confirm
 
     [Header("Proximity Feedback")]
-    [Tooltip("Distance threshold in meters. Within this = green, outside = yellow.")]
+    [Tooltip("Distance threshold in meters. Within this = on-curve (blue), outside = depth-directional.")]
     public float proximityThreshold = 0.02f;
 
     private MeshRenderer meshRenderer;
@@ -50,16 +51,30 @@ public class FingerCursorVisualizer : MonoBehaviour
 
         if (proximityFeedbackEnabled)
         {
-            float dist = GetDistanceToCurve(pos);
-            meshRenderer.material.color = dist <= proximityThreshold
-                ? onCurveColor
-                : offCurveColor;
+            GetNearestCurvePoint(pos, out Vector3 nearest, out float dist);
+            Color c;
+            if (dist <= proximityThreshold)
+                c = onCurveColor;           // blue: on the curve
+            else if (pos.z < nearest.z)
+                c = underreachColor;        // yellow: not reaching far enough in depth
+            else
+                c = overreachColor;         // red: reaching too far in depth
+            meshRenderer.material.color = c;
         }
     }
 
+    // Returns distance to the nearest point on the active curve/cube.
     public float GetDistanceToCurve(Vector3 pos)
     {
+        GetNearestCurvePoint(pos, out _, out float dist);
+        return dist;
+    }
+
+    private void GetNearestCurvePoint(Vector3 pos, out Vector3 nearest, out float distance)
+    {
+        nearest = pos;
         float minDist = float.MaxValue;
+        Vector3 minPt = pos;
 
         if (proximityTrefoil2D != null)
         {
@@ -70,16 +85,17 @@ public class FingerCursorVisualizer : MonoBehaviour
                 Vector3 worldPt = proximityTrefoil2D.transform.TransformPoint(
                     proximityTrefoil2D.GetPointAt(phi));
                 float d = Vector3.Distance(pos, worldPt);
-                if (d < minDist) minDist = d;
+                if (d < minDist) { minDist = d; minPt = worldPt; }
             }
         }
 
         if (proximityTrefoil3D != null)
         {
-            Vector3 nearest = proximityTrefoil3D.GetNearestCurveWorldPoint(pos, out _);
-            float d = Vector3.Distance(pos, nearest);
-            if (d < minDist) minDist = d;
+            Vector3 np = proximityTrefoil3D.GetNearestCurveWorldPoint(pos, out _);
+            float d = Vector3.Distance(pos, np);
+            if (d < minDist) { minDist = d; minPt = np; }
         }
+
         if (proximityCube != null)
         {
             for (int i = 0; i < proximityCube.GetEdgeCount(); i++)
@@ -92,16 +108,19 @@ public class FingerCursorVisualizer : MonoBehaviour
                 float   proj      = Mathf.Clamp(Vector3.Dot(toPos, edgeDir), 0f, edgeLen);
                 Vector3 closest   = edgeStart + edgeDir * proj;
                 float   d         = Vector3.Distance(pos, closest);
-                if (d < minDist) minDist = d;
+                if (d < minDist) { minDist = d; minPt = closest; }
             }
         }
-        return minDist;
+
+        nearest = minPt;
+        distance = minDist;
     }
 
     public void EnableProximityFeedback2D(TrefoilGenerator trefoil)
     {
         proximityTrefoil2D = trefoil;
         proximityTrefoil3D = null;
+        proximityCube = null;
         proximityFeedbackEnabled = true;
     }
 
@@ -109,6 +128,7 @@ public class FingerCursorVisualizer : MonoBehaviour
     {
         proximityTrefoil3D = trefoil;
         proximityTrefoil2D = null;
+        proximityCube = null;
         proximityFeedbackEnabled = true;
     }
 
@@ -134,7 +154,7 @@ public class FingerCursorVisualizer : MonoBehaviour
     {
         frozen = true;
         transform.position = pos;
-        meshRenderer.material.color = DarkGreen;
+        meshRenderer.material.color = ConfirmedColor;
     }
 
     public void ResetCursor()
