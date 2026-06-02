@@ -77,6 +77,7 @@ public class CubeCalibrator : MonoBehaviour
         outlineRenderer.startColor = outlineRenderer.endColor = cubeColor;
         outlineRenderer.startWidth = outlineRenderer.endWidth = lineWidth;
         outlineRenderer.numCornerVertices = 4;
+        outlineRenderer.alignment = LineAlignment.TransformZ;
 
         // Three dim secondary depth edges
         secondaryRenderers = new LineRenderer[3];
@@ -92,6 +93,7 @@ public class CubeCalibrator : MonoBehaviour
             lr.material = new Material(Shader.Find("Sprites/Default"));
             lr.startColor = lr.endColor = dimColor;
             lr.startWidth = lr.endWidth = dimWidth;
+            lr.alignment = LineAlignment.TransformZ;
             secondaryRenderers[i] = lr;
         }
 
