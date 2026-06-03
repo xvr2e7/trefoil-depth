@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+[RequireComponent(typeof(MeshFilter), typeof(MeshRenderer))]
 public class CubeCalibrator : MonoBehaviour
 {
     [Header("Cube Parameters")]
@@ -66,14 +67,18 @@ public class CubeCalibrator : MonoBehaviour
             new Vector2(0, 0), new Vector2(1, 0), new Vector2(1, 1), new Vector2(0, 1)
         };
 
+        // UV2.x tags per face:
+        //   0 = front/back (primary: all 4 edges white)
+        //   1 = left/bottom side (V=0 edge = traced depth edge → white; V=1 → gray)
+        //   3 = right/top side (both V edges are non-traced depth edges → gray)
+        float[] faceTag = { 0f, 0f, 1f, 3f, 1f, 3f };
         for (int f = 0; f < 6; f++)
         {
-            float secondary = f >= 2 ? 1f : 0f;
             for (int v = 0; v < 4; v++)
             {
                 verts[f * 4 + v] = localVertices[faceVertices[f, v]];
                 uvs  [f * 4 + v] = faceUVCorners[v];
-                uv2s [f * 4 + v] = new Vector2(secondary, 0f);
+                uv2s [f * 4 + v] = new Vector2(faceTag[f], 0f);
             }
         }
 
