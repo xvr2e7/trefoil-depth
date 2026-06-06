@@ -26,6 +26,7 @@ public class FourierTrefoil3D : MonoBehaviour
     public bool adjustmentEnabled = true;
     public bool autoRotate = false;  // For automatic rotation during confirmation (Z-axis)
     public bool manualRotationMode = false;  // For manual exploration rotation (Y-axis)
+    public bool useZAxisRotation = false;    // When true, autoRotate spins around Z; else around Y
 
     private Mesh mesh;
     private float[] phiValues;  // φ values from CSV
@@ -38,7 +39,7 @@ public class FourierTrefoil3D : MonoBehaviour
     void Start()
     {
         meshRenderer = GetComponent<MeshRenderer>();
-        Material mat = new Material(Shader.Find("Standard"));
+        Material mat = new Material(Shader.Find("Custom/RightEyeOnly"));
         mat.color = Color.white;
         meshRenderer.material = mat;
 
@@ -127,7 +128,9 @@ public class FourierTrefoil3D : MonoBehaviour
         if (autoRotate)
         {
             currentRotationZ += rotationSpeed * Time.deltaTime * rotationDirection;
-            transform.localRotation = Quaternion.Euler(0, currentRotationZ, 0);
+            transform.localRotation = useZAxisRotation
+                ? Quaternion.Euler(0, 0, currentRotationZ)
+                : Quaternion.Euler(0, currentRotationZ, 0);
             return;
         }
 
@@ -250,24 +253,22 @@ public class FourierTrefoil3D : MonoBehaviour
         adjustmentEnabled = true;
     }
 
-    public void SetRotationMode(bool enable, float speed = 60f, int direction = 1)
+    public void SetRotationMode(bool enable, float speed = 60f, int direction = 1, bool zAxis = false)
     {
         if (enable)
         {
-            // Enable automatic rotation mode around Z-axis (matches 2D stimulus)
             autoRotate = true;
             manualRotationMode = false;
             adjustmentEnabled = false;
-            rotationSpeed = speed;  // Set rotation speed to match stimulus
-            rotationDirection = direction;  // Set rotation direction to match stimulus
-            // Don't reset currentRotationZ - start from current orientation
-            // Don't change amplitude - keep the adjusted value
+            rotationSpeed = speed;
+            rotationDirection = direction;
+            useZAxisRotation = zAxis;
             GenerateTubeMesh();
         }
         else
         {
-            // Disable rotation mode
             autoRotate = false;
+            useZAxisRotation = false;
             adjustmentEnabled = true;
         }
     }
@@ -303,5 +304,38 @@ public class FourierTrefoil3D : MonoBehaviour
     public void SetVisibility(bool visible)
     {
         meshRenderer.enabled = visible;
+    }
+
+    // Returns the current Y-axis rotation angle (degrees) accumulated by autoRotate.
+    // Note: the field is named currentRotationZ in legacy code but drives Euler Y.
+    public float GetCurrentRotationY() => currentRotationZ;
+
+    // Returns the nearest point on the curve centerline in world space and its phi value.
+    // Requires ResetParameters to have been called (loads CSV data).
+    public Vector3 GetNearestCurveWorldPoint(Vector3 queryWorldPos, out float nearestPhi)
+    {
+        nearestPhi = 0f;
+        if (phiValues == null || phiValues.Length == 0)
+            return queryWorldPos;
+
+        Vector3 localQuery = transform.InverseTransformPoint(queryWorldPos);
+        float minSqDist = float.MaxValue;
+        int bestIdx = 0;
+
+        for (int i = 0; i < phiValues.Length; i++)
+        {
+            float phi = phiValues[i];
+            float x = R1 * Mathf.Cos(phi) + R2 * Mathf.Cos(2 * phi);
+            float y = R1 * Mathf.Sin(phi) - R2 * Mathf.Sin(2 * phi);
+            float z = zBaseValues[i] * amplitude;
+            float sqd = (localQuery - new Vector3(x, y, z)).sqrMagnitude;
+            if (sqd < minSqDist) { minSqDist = sqd; bestIdx = i; }
+        }
+
+        nearestPhi = phiValues[bestIdx];
+        float bx = R1 * Mathf.Cos(nearestPhi) + R2 * Mathf.Cos(2 * nearestPhi);
+        float by = R1 * Mathf.Sin(nearestPhi) - R2 * Mathf.Sin(2 * nearestPhi);
+        float bz = zBaseValues[bestIdx] * amplitude;
+        return transform.TransformPoint(new Vector3(bx, by, bz));
     }
 }

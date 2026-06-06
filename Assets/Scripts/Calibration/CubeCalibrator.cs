@@ -1,182 +1,180 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-/// <summary>
-/// Displays a wireframe cube for motor calibration.
-/// Participants trace along designated edges to establish baseline motor error.
-/// </summary>
+[RequireComponent(typeof(MeshFilter), typeof(MeshRenderer))]
 public class CubeCalibrator : MonoBehaviour
 {
     [Header("Cube Parameters")]
-    public float edgeLength = 0.3f; // 30cm cube
-    public Color cubeColor = Color.black;
-    public float lineWidth = 0.005f;
+    public float edgeLength = 0.3f;
 
-    [Header("Edge Highlighting")]
-    public Color highlightColor = Color.yellow;
-    public float highlightWidth = 0.008f;
+    [Header("Material")]
+    [Tooltip("Assign a material using Custom/WireframeCube shader. Created from shader defaults if left empty.")]
+    public Material wireframeMaterial;
 
-    private LineRenderer[] edgeRenderers;
-    private int highlightedEdgeIndex = -1;
+    // 9 primary traced edges as a vertex-index path: front face → one depth edge → back face
+    private static readonly int[] polylineOrder = { 0, 1, 2, 3, 0, 4, 5, 6, 7, 4 };
 
-    // Cube has 12 edges
-    private static readonly int[,] edgeIndices = new int[12, 2]
-    {
-        // Bottom face
-        {0, 1}, {1, 2}, {2, 3}, {3, 0},
-        // Top face
-        {4, 5}, {5, 6}, {6, 7}, {7, 4},
-        // Vertical edges
-        {0, 4}, {1, 5}, {2, 6}, {3, 7}
+    // 6 faces: each row lists 4 local vertex indices arranged so that UV (0,0)→(1,0)→(1,1)→(0,1)
+    // aligns to actual cube edges (no diagonals). Faces 0-1 = front/back (primary, all edges drawn).
+    // Faces 2-5 = side faces (secondary): UV V-axis = depth direction so the shader can draw only
+    // depth edges in the secondary color without redrawing face edges already covered by front/back.
+    private static readonly int[,] faceVertices = {
+        { 0, 1, 2, 3 }, // front  (z = -h) — primary
+        { 5, 4, 7, 6 }, // back   (z = +h) — primary
+        { 4, 0, 3, 7 }, // left   (x = -h) — secondary, V=depth (V0=edge 4-0, V1=edge 7-3)
+        { 1, 5, 6, 2 }, // right  (x = +h) — secondary, V=depth (V0=edge 1-5, V1=edge 2-6)
+        { 4, 0, 1, 5 }, // bottom (y = -h) — secondary, V=depth (V0=edge 4-0, V1=edge 5-1)
+        { 7, 3, 2, 6 }, // top    (y = +h) — secondary, V=depth (V0=edge 7-3, V1=edge 6-2)
     };
 
-    void Start()
+    private Vector3[] localVertices;
+    private MeshRenderer meshRenderer;
+
+    private bool isRotating = false;
+    private float rotSpeed = 0f;
+
+    void Start() => BuildCube();
+
+    void Update()
     {
-        GenerateWireframeCube();
+        if (isRotating)
+            transform.Rotate(Vector3.forward, rotSpeed * Time.deltaTime);
     }
 
-    void GenerateWireframeCube()
+    void BuildCube()
     {
-        // Calculate 8 vertices of the cube centered at origin
-        Vector3[] vertices = new Vector3[8];
-        float half = edgeLength * 0.5f;
+        float h = edgeLength * 0.5f;
 
-        vertices[0] = new Vector3(-half, -half, -half); // Bottom face
-        vertices[1] = new Vector3(half, -half, -half);
-        vertices[2] = new Vector3(half, half, -half);
-        vertices[3] = new Vector3(-half, half, -half);
-        vertices[4] = new Vector3(-half, -half, half);  // Top face
-        vertices[5] = new Vector3(half, -half, half);
-        vertices[6] = new Vector3(half, half, half);
-        vertices[7] = new Vector3(-half, half, half);
-
-        // Create LineRenderers for each edge
-        edgeRenderers = new LineRenderer[12];
-
-        for (int i = 0; i < 12; i++)
+        localVertices = new Vector3[]
         {
-            GameObject edgeObj = new GameObject($"Edge_{i}");
-            edgeObj.transform.SetParent(transform);
-            edgeObj.transform.localPosition = Vector3.zero;
-            edgeObj.transform.localRotation = Quaternion.identity;
+            new Vector3(-h, -h, -h), // 0 front-left-bottom
+            new Vector3( h, -h, -h), // 1 front-right-bottom
+            new Vector3( h,  h, -h), // 2 front-right-top
+            new Vector3(-h,  h, -h), // 3 front-left-top
+            new Vector3(-h, -h,  h), // 4 back-left-bottom
+            new Vector3( h, -h,  h), // 5 back-right-bottom
+            new Vector3( h,  h,  h), // 6 back-right-top
+            new Vector3(-h,  h,  h), // 7 back-left-top
+        };
 
-            LineRenderer lr = edgeObj.AddComponent<LineRenderer>();
-            lr.positionCount = 2;
-            lr.startWidth = lineWidth;
-            lr.endWidth = lineWidth;
-            lr.material = new Material(Shader.Find("Sprites/Default"));
-            lr.startColor = cubeColor;
-            lr.endColor = cubeColor;
-            lr.useWorldSpace = false;
+        // 6 faces × 4 verts, each face gets its own UV (0,0)→(1,1) range so the
+        // shader's UV-edge detection maps to exactly the 12 cube edges.
+        // UV2.x = 0 for front/back (primary), 1 for side faces (secondary/depth-only).
+        var verts = new Vector3[24];
+        var uvs   = new Vector2[24];
+        var uv2s  = new Vector2[24];
+        var faceUVCorners = new Vector2[] {
+            new Vector2(0, 0), new Vector2(1, 0), new Vector2(1, 1), new Vector2(0, 1)
+        };
 
-            // Set positions for this edge
-            int v0 = edgeIndices[i, 0];
-            int v1 = edgeIndices[i, 1];
-            lr.SetPosition(0, vertices[v0]);
-            lr.SetPosition(1, vertices[v1]);
-
-            edgeRenderers[i] = lr;
-        }
-    }
-
-    public void SetVisibility(bool visible)
-    {
-        if (edgeRenderers != null)
+        // UV2.x tags per face:
+        //   0 = front/back (primary: all 4 edges white)
+        //   1 = left/bottom side (V=0 edge = traced depth edge → white; V=1 → gray)
+        //   3 = right/top side (both V edges are non-traced depth edges → gray)
+        float[] faceTag = { 0f, 0f, 1f, 3f, 1f, 3f };
+        for (int f = 0; f < 6; f++)
         {
-            foreach (var lr in edgeRenderers)
+            for (int v = 0; v < 4; v++)
             {
-                if (lr != null)
-                    lr.enabled = visible;
+                verts[f * 4 + v] = localVertices[faceVertices[f, v]];
+                uvs  [f * 4 + v] = faceUVCorners[v];
+                uv2s [f * 4 + v] = new Vector2(faceTag[f], 0f);
             }
         }
-    }
 
-    public void HighlightEdge(int edgeIndex)
-    {
-        // Reset previous highlight
-        if (highlightedEdgeIndex >= 0 && highlightedEdgeIndex < edgeRenderers.Length)
+        var tris = new int[36];
+        for (int f = 0; f < 6; f++)
         {
-            edgeRenderers[highlightedEdgeIndex].startColor = cubeColor;
-            edgeRenderers[highlightedEdgeIndex].endColor = cubeColor;
-            edgeRenderers[highlightedEdgeIndex].startWidth = lineWidth;
-            edgeRenderers[highlightedEdgeIndex].endWidth = lineWidth;
+            int b = f * 4;
+            tris[f * 6 + 0] = b;     tris[f * 6 + 1] = b + 1; tris[f * 6 + 2] = b + 2;
+            tris[f * 6 + 3] = b;     tris[f * 6 + 4] = b + 2; tris[f * 6 + 5] = b + 3;
         }
 
-        // Set new highlight
-        if (edgeIndex >= 0 && edgeIndex < edgeRenderers.Length)
+        var mesh = new Mesh();
+        mesh.vertices  = verts;
+        mesh.uv        = uvs;
+        mesh.uv2       = uv2s;
+        mesh.triangles = tris;
+        mesh.RecalculateNormals();
+        var mf = GetComponent<MeshFilter>() ?? gameObject.AddComponent<MeshFilter>();
+        mf.mesh = mesh;
+
+        meshRenderer = GetComponent<MeshRenderer>() ?? gameObject.AddComponent<MeshRenderer>();
+        if (wireframeMaterial != null)
         {
-            edgeRenderers[edgeIndex].startColor = highlightColor;
-            edgeRenderers[edgeIndex].endColor = highlightColor;
-            edgeRenderers[edgeIndex].startWidth = highlightWidth;
-            edgeRenderers[edgeIndex].endWidth = highlightWidth;
-            highlightedEdgeIndex = edgeIndex;
+            meshRenderer.material = wireframeMaterial;
         }
         else
         {
-            highlightedEdgeIndex = -1;
+            var mat = new Material(Shader.Find("Custom/WireframeCube"));
+            mat.SetColor("_EdgeColor",      Color.white);
+            mat.SetColor("_SecondaryColor", new Color(0.4f, 0.4f, 0.4f, 1f));
+            mat.SetFloat("_LineThickness",  0.02f);
+            meshRenderer.material = mat;
         }
     }
 
-    public void ClearHighlight()
+    public void StartRotating(float speed) { rotSpeed = speed; isRotating = true; }
+    public void StopRotating() { isRotating = false; rotSpeed = 0f; }
+
+    public void SetVisibility(bool visible)
     {
-        HighlightEdge(-1);
+        if (meshRenderer != null) meshRenderer.enabled = visible;
     }
 
+    // Returns the nearest point on the 9 primary traced edges in world space.
+    public Vector3 GetNearestCurveWorldPoint(Vector3 worldPos)
+    {
+        float   minDist = float.MaxValue;
+        Vector3 nearest = worldPos;
+        for (int i = 0; i < polylineOrder.Length - 1; i++)
+        {
+            Vector3 segStart = transform.TransformPoint(localVertices[polylineOrder[i]]);
+            Vector3 segEnd   = transform.TransformPoint(localVertices[polylineOrder[i + 1]]);
+            Vector3 segDir   = (segEnd - segStart).normalized;
+            float   segLen   = Vector3.Distance(segStart, segEnd);
+            float   proj     = Mathf.Clamp(Vector3.Dot(worldPos - segStart, segDir), 0f, segLen);
+            Vector3 closest  = segStart + segDir * proj;
+            float   d        = Vector3.Distance(worldPos, closest);
+            if (d < minDist) { minDist = d; nearest = closest; }
+        }
+        return nearest;
+    }
+
+    // Stubs kept for HandTrackingExperimentManager compatibility.
+    public void HighlightEdge(int edgeIndex) { }
+    public void ClearHighlight() { }
+
+    public float GetEdgeLength() => edgeLength;
+
+    // Legacy accessors used by CalculateMotorError.
     public Vector3 GetEdgeStart(int edgeIndex)
     {
-        if (edgeIndex < 0 || edgeIndex >= edgeRenderers.Length)
-            return Vector3.zero;
-
-        Vector3 localPos = edgeRenderers[edgeIndex].GetPosition(0);
-        return transform.TransformPoint(localPos);
+        if (localVertices == null || edgeIndex < 0) return Vector3.zero;
+        int v = polylineOrder[Mathf.Clamp(edgeIndex, 0, polylineOrder.Length - 1)];
+        return transform.TransformPoint(localVertices[v]);
     }
 
     public Vector3 GetEdgeEnd(int edgeIndex)
     {
-        if (edgeIndex < 0 || edgeIndex >= edgeRenderers.Length)
-            return Vector3.zero;
-
-        Vector3 localPos = edgeRenderers[edgeIndex].GetPosition(1);
-        return transform.TransformPoint(localPos);
+        if (localVertices == null || edgeIndex < 0) return Vector3.zero;
+        int v = polylineOrder[Mathf.Clamp(edgeIndex + 1, 0, polylineOrder.Length - 1)];
+        return transform.TransformPoint(localVertices[v]);
     }
 
-    public float GetEdgeLength()
-    {
-        return edgeLength;
-    }
-
-    public int GetEdgeCount()
-    {
-        return 12;
-    }
-
-    /// <summary>
-    /// Calculate motor error for a traced edge segment.
-    /// Returns average perpendicular distance from traced points to the true edge line.
-    /// </summary>
     public float CalculateMotorError(int edgeIndex, List<Vector3> tracedPoints)
     {
-        if (edgeIndex < 0 || edgeIndex >= edgeRenderers.Length || tracedPoints.Count == 0)
-            return 0f;
-
+        if (tracedPoints.Count == 0) return 0f;
         Vector3 edgeStart = GetEdgeStart(edgeIndex);
-        Vector3 edgeEnd = GetEdgeEnd(edgeIndex);
-        Vector3 edgeDir = (edgeEnd - edgeStart).normalized;
-
-        float totalError = 0f;
-
+        Vector3 edgeEnd   = GetEdgeEnd(edgeIndex);
+        Vector3 edgeDir   = (edgeEnd - edgeStart).normalized;
+        float   totalError = 0f;
         foreach (Vector3 point in tracedPoints)
         {
-            // Project point onto the edge line
-            Vector3 toPoint = point - edgeStart;
-            float projection = Vector3.Dot(toPoint, edgeDir);
-            Vector3 closestPointOnEdge = edgeStart + edgeDir * Mathf.Clamp(projection, 0, edgeLength);
-
-            // Calculate perpendicular distance
-            float distance = Vector3.Distance(point, closestPointOnEdge);
-            totalError += distance;
+            float   proj    = Vector3.Dot(point - edgeStart, edgeDir);
+            Vector3 closest = edgeStart + edgeDir * Mathf.Clamp(proj, 0, edgeLength);
+            totalError += Vector3.Distance(point, closest);
         }
-
         return totalError / tracedPoints.Count;
     }
 }

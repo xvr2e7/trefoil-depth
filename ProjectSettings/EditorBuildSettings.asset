@@ -6,17 +6,8 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/Scenes/Welcome.unity
-    guid: b5d1be8d5635442eda10d98829b9a17e
-  - enabled: 1
-    path: Assets/Scenes/DepthOnly.unity
-    guid: 567dcee12077d4cd7b9f4c44a89fdbf5
-  - enabled: 1
-    path: Assets/Scenes/DepthHandTracking.unity
-    guid: a33ff744aab8643a5b4ee2f5c3d84486
-  - enabled: 1
-    path: Assets/Scenes/StrategicPinch.unity
-    guid: 971fdddf1350d42268445c2c93fef3c8
+    path: Assets/Scenes/Rotating Trace.unity
+    guid: a0f5bf441aa5af54caa30454695c2c9d
   m_configObjects:
     com.unity.xr.management.loader_settings: {fileID: 11400000, guid: b43230630cbd04b7480beaa89b024c78, type: 2}
     com.unity.xr.openxr.settings4: {fileID: 11400000, guid: 8d3151245401f43e99e316ca77d8cc12, type: 2}
