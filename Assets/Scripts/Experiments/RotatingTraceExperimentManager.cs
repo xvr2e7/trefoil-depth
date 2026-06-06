@@ -302,7 +302,7 @@ public class RotatingTraceExperimentManager : MonoBehaviour
                 "Three of those connecting edges are dimmed — you only need to\n" +
                 "trace both faces and the one clearly visible connecting edge.\n\n" +
                 "At the start of each trial:\n" +
-                "  • Position the GREEN marker on any visible vertex or edge\n" +
+                "  • Position the marker on any visible vertex or edge\n" +
                 "  • Let the experimenter know you're ready\n\n" +
                 $"You will then trace the visible edges continuously for {trialDuration:F0} seconds.\n\n" +
                 "The marker is GREEN when on an edge.\n" +
@@ -331,13 +331,13 @@ public class RotatingTraceExperimentManager : MonoBehaviour
         Explain("TREFOIL CALIBRATION TASK\n\n" +
                 "You will now trace the curve of a trefoil (a shape with three lobes).\n\n" +
                 "At the start of each trial:\n" +
-                "  • Place the BLUE marker on any point on the curve\n" +
+                "  • Place the marker on any point on the curve\n" +
                 "  • Let the experimenter know you're ready\n\n" +
                 $"You will then trace the curve continuously for {trialDuration:F0} seconds,\n" +
                 "completing as many full cycles as you can.\n\n" +
-                "The marker is BLUE when on the curve.\n" +
+                "The marker is GREEN when on the curve.\n" +
                 "It turns YELLOW if you are not reaching far enough, RED if reaching too far.\n" +
-                "Try to keep it BLUE throughout the trial.\n\n" +
+                "Try to keep it GREEN throughout the trial.\n\n" +
                 "The experimenter will advance when you're ready to begin.");
         yield return WaitSignalStart();
         Explain("");
@@ -432,14 +432,14 @@ public class RotatingTraceExperimentManager : MonoBehaviour
         string trialType = rotating ? "cube_rotating" : "cube_static";
         int    total    = calibTrialCount;
 
-        Explain("Position the BLUE marker on any visible vertex or edge of the cube.\n" +
-                "Let the experimenter know when you're ready.");
+        Explain("Position the marker on any visible vertex or edge of the cube.\n" +
+                "Let the experimenter know when the marker is GREEN and you're ready.");
         SetStatus($"{label} trial {trialIdx + 1}/{total} — waiting");
         yield return WaitSignalStart();
         calibTracingPhase = true;
         isRecording = true;
         Explain("Trace all visible edges continuously — both square faces and the connecting edge.\n" +
-                "Keep the marker BLUE — YELLOW means underreaching, RED means overreaching.\n" +
+                "Keep the marker GREEN — YELLOW means underreaching, RED means overreaching.\n" +
                 $"Recording stops automatically after {trialDuration:F0} seconds.");
 
         float startTime = Time.time;
@@ -525,14 +525,14 @@ public class RotatingTraceExperimentManager : MonoBehaviour
             else
                 fingerCursor.EnableProximityFeedback2D(rotatingTrefoil);
         }
-        Explain("Position the BLUE marker on any point on the curve.\n" +
-                "Let the experimenter know when you're ready.");
+        Explain("Position the marker on any point on the curve.\n" +
+                "Let the experimenter know when the marker is green and you're ready.");
         SetStatus($"{label} trial {trialIdx + 1}/{total} — waiting");
         yield return WaitSignalStart();
         calibTracingPhase = true;
         isRecording = true;
         Explain("Trace the curve continuously, completing as many full cycles as you can.\n" +
-        "Keep the marker BLUE — YELLOW means underreaching, RED means overreaching.\n" +
+        "Keep the marker GREEN — YELLOW means underreaching, RED means overreaching.\n" +
         $"Recording stops automatically after {trialDuration:F0} seconds.");
 
         float startTime = Time.time;
