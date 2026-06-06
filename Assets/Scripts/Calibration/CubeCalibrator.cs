@@ -1,30 +1,34 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+[RequireComponent(typeof(MeshFilter), typeof(MeshRenderer))]
 public class CubeCalibrator : MonoBehaviour
 {
     [Header("Cube Parameters")]
     public float edgeLength = 0.3f;
-    public Color cubeColor = Color.black;
-    public float lineWidth = 0.005f;
 
-    [Header("Secondary Edges")]
-    public Color dimColor = new Color(0.5f, 0.5f, 0.5f, 0.3f);
-    public float dimWidth = 0.002f;
+    [Header("Material")]
+    [Tooltip("Assign a material using Custom/WireframeCube shader. Created from shader defaults if left empty.")]
+    public Material wireframeMaterial;
 
-    [Header("Edge Highlighting")]
-    public Color highlightColor = Color.yellow;
-    public float highlightWidth = 0.008f;
-
-    // Polyline through all 9 primary edges: front face → connecting edge → back face
+    // 9 primary traced edges as a vertex-index path: front face → one depth edge → back face
     private static readonly int[] polylineOrder = { 0, 1, 2, 3, 0, 4, 5, 6, 7, 4 };
 
-    // Secondary dim depth edges (the 3 not in the primary polyline): v1→v5, v2→v6, v3→v7
-    private static readonly int[,] secondaryVerts = { { 1, 5 }, { 2, 6 }, { 3, 7 } };
+    // 6 faces: each row lists 4 local vertex indices arranged so that UV (0,0)→(1,0)→(1,1)→(0,1)
+    // aligns to actual cube edges (no diagonals). Faces 0-1 = front/back (primary, all edges drawn).
+    // Faces 2-5 = side faces (secondary): UV V-axis = depth direction so the shader can draw only
+    // depth edges in the secondary color without redrawing face edges already covered by front/back.
+    private static readonly int[,] faceVertices = {
+        { 0, 1, 2, 3 }, // front  (z = -h) — primary
+        { 5, 4, 7, 6 }, // back   (z = +h) — primary
+        { 4, 0, 3, 7 }, // left   (x = -h) — secondary, V=depth (V0=edge 4-0, V1=edge 7-3)
+        { 1, 5, 6, 2 }, // right  (x = +h) — secondary, V=depth (V0=edge 1-5, V1=edge 2-6)
+        { 4, 0, 1, 5 }, // bottom (y = -h) — secondary, V=depth (V0=edge 4-0, V1=edge 5-1)
+        { 7, 3, 2, 6 }, // top    (y = +h) — secondary, V=depth (V0=edge 7-3, V1=edge 6-2)
+    };
 
     private Vector3[] localVertices;
-    private LineRenderer outlineRenderer;
-    private LineRenderer[] secondaryRenderers;
+    private MeshRenderer meshRenderer;
 
     private bool isRotating = false;
     private float rotSpeed = 0f;
@@ -35,24 +39,12 @@ public class CubeCalibrator : MonoBehaviour
     {
         if (isRotating)
             transform.Rotate(Vector3.forward, rotSpeed * Time.deltaTime);
-        UpdatePolylinePositions();
-    }
-
-    void UpdatePolylinePositions()
-    {
-        if (outlineRenderer == null || localVertices == null) return;
-        for (int i = 0; i < polylineOrder.Length; i++)
-            outlineRenderer.SetPosition(i, transform.TransformPoint(localVertices[polylineOrder[i]]));
-        for (int i = 0; i < 3; i++)
-        {
-            secondaryRenderers[i].SetPosition(0, transform.TransformPoint(localVertices[secondaryVerts[i, 0]]));
-            secondaryRenderers[i].SetPosition(1, transform.TransformPoint(localVertices[secondaryVerts[i, 1]]));
-        }
     }
 
     void BuildCube()
     {
         float h = edgeLength * 0.5f;
+
         localVertices = new Vector3[]
         {
             new Vector3(-h, -h, -h), // 0 front-left-bottom
@@ -65,37 +57,61 @@ public class CubeCalibrator : MonoBehaviour
             new Vector3(-h,  h,  h), // 7 back-left-top
         };
 
-        // Single LineRenderer for the 9 primary edges as one continuous path
-        GameObject outlineObj = new GameObject("CubeOutline");
-        outlineObj.transform.SetParent(transform);
-        outlineObj.transform.localPosition = Vector3.zero;
-        outlineObj.transform.localRotation = Quaternion.identity;
-        outlineRenderer = outlineObj.AddComponent<LineRenderer>();
-        outlineRenderer.useWorldSpace = true;
-        outlineRenderer.positionCount = polylineOrder.Length;
-        outlineRenderer.material = new Material(Shader.Find("Sprites/Default"));
-        outlineRenderer.startColor = outlineRenderer.endColor = cubeColor;
-        outlineRenderer.startWidth = outlineRenderer.endWidth = lineWidth;
-        outlineRenderer.numCornerVertices = 4;
+        // 6 faces × 4 verts, each face gets its own UV (0,0)→(1,1) range so the
+        // shader's UV-edge detection maps to exactly the 12 cube edges.
+        // UV2.x = 0 for front/back (primary), 1 for side faces (secondary/depth-only).
+        var verts = new Vector3[24];
+        var uvs   = new Vector2[24];
+        var uv2s  = new Vector2[24];
+        var faceUVCorners = new Vector2[] {
+            new Vector2(0, 0), new Vector2(1, 0), new Vector2(1, 1), new Vector2(0, 1)
+        };
 
-        // Three dim secondary depth edges
-        secondaryRenderers = new LineRenderer[3];
-        for (int i = 0; i < 3; i++)
+        // UV2.x tags per face:
+        //   0 = front/back (primary: all 4 edges white)
+        //   1 = left/bottom side (V=0 edge = traced depth edge → white; V=1 → gray)
+        //   3 = right/top side (both V edges are non-traced depth edges → gray)
+        float[] faceTag = { 0f, 0f, 1f, 3f, 1f, 3f };
+        for (int f = 0; f < 6; f++)
         {
-            GameObject secObj = new GameObject($"SecondaryEdge_{i}");
-            secObj.transform.SetParent(transform);
-            secObj.transform.localPosition = Vector3.zero;
-            secObj.transform.localRotation = Quaternion.identity;
-            LineRenderer lr = secObj.AddComponent<LineRenderer>();
-            lr.useWorldSpace = true;
-            lr.positionCount = 2;
-            lr.material = new Material(Shader.Find("Sprites/Default"));
-            lr.startColor = lr.endColor = dimColor;
-            lr.startWidth = lr.endWidth = dimWidth;
-            secondaryRenderers[i] = lr;
+            for (int v = 0; v < 4; v++)
+            {
+                verts[f * 4 + v] = localVertices[faceVertices[f, v]];
+                uvs  [f * 4 + v] = faceUVCorners[v];
+                uv2s [f * 4 + v] = new Vector2(faceTag[f], 0f);
+            }
         }
 
-        UpdatePolylinePositions();
+        var tris = new int[36];
+        for (int f = 0; f < 6; f++)
+        {
+            int b = f * 4;
+            tris[f * 6 + 0] = b;     tris[f * 6 + 1] = b + 1; tris[f * 6 + 2] = b + 2;
+            tris[f * 6 + 3] = b;     tris[f * 6 + 4] = b + 2; tris[f * 6 + 5] = b + 3;
+        }
+
+        var mesh = new Mesh();
+        mesh.vertices  = verts;
+        mesh.uv        = uvs;
+        mesh.uv2       = uv2s;
+        mesh.triangles = tris;
+        mesh.RecalculateNormals();
+        var mf = GetComponent<MeshFilter>() ?? gameObject.AddComponent<MeshFilter>();
+        mf.mesh = mesh;
+
+        meshRenderer = GetComponent<MeshRenderer>() ?? gameObject.AddComponent<MeshRenderer>();
+        if (wireframeMaterial != null)
+        {
+            meshRenderer.material = wireframeMaterial;
+        }
+        else
+        {
+            var mat = new Material(Shader.Find("Custom/WireframeCube"));
+            mat.SetColor("_EdgeColor",      Color.white);
+            mat.SetColor("_SecondaryColor", new Color(0.4f, 0.4f, 0.4f, 1f));
+            mat.SetFloat("_LineThickness",  0.02f);
+            meshRenderer.material = mat;
+        }
     }
 
     public void StartRotating(float speed) { rotSpeed = speed; isRotating = true; }
@@ -103,16 +119,13 @@ public class CubeCalibrator : MonoBehaviour
 
     public void SetVisibility(bool visible)
     {
-        if (outlineRenderer != null) outlineRenderer.enabled = visible;
-        if (secondaryRenderers != null)
-            foreach (var lr in secondaryRenderers)
-                if (lr != null) lr.enabled = visible;
+        if (meshRenderer != null) meshRenderer.enabled = visible;
     }
 
-    // Returns the nearest point on the primary polyline in world space.
+    // Returns the nearest point on the 9 primary traced edges in world space.
     public Vector3 GetNearestCurveWorldPoint(Vector3 worldPos)
     {
-        float minDist = float.MaxValue;
+        float   minDist = float.MaxValue;
         Vector3 nearest = worldPos;
         for (int i = 0; i < polylineOrder.Length - 1; i++)
         {
@@ -128,7 +141,7 @@ public class CubeCalibrator : MonoBehaviour
         return nearest;
     }
 
-    // Kept for HandTrackingExperimentManager — stub until that scene is updated.
+    // Stubs kept for HandTrackingExperimentManager compatibility.
     public void HighlightEdge(int edgeIndex) { }
     public void ClearHighlight() { }
 
@@ -155,7 +168,7 @@ public class CubeCalibrator : MonoBehaviour
         Vector3 edgeStart = GetEdgeStart(edgeIndex);
         Vector3 edgeEnd   = GetEdgeEnd(edgeIndex);
         Vector3 edgeDir   = (edgeEnd - edgeStart).normalized;
-        float totalError  = 0f;
+        float   totalError = 0f;
         foreach (Vector3 point in tracedPoints)
         {
             float   proj    = Vector3.Dot(point - edgeStart, edgeDir);
