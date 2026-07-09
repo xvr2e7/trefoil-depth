@@ -10,7 +10,12 @@ Shader "Custom/WireframeCube"
     {
         Tags { "RenderType"="Transparent" "Queue"="Transparent" }
         Blend SrcAlpha OneMinusSrcAlpha
-        ZWrite Off
+        // ZWrite On so the edge bands occlude the finger cursor per-pixel. With ZWrite Off
+        // the cursor (nearer than the cube's bounds center whenever it works near the front
+        // face) is sorted on top of every line, so it reads as "in front of" the front edge
+        // even when it is behind it — occlusion is the only monocular depth cue here.
+        // Face interiors are discarded below, so they never write depth.
+        ZWrite On
         Cull Off
 
         Pass
