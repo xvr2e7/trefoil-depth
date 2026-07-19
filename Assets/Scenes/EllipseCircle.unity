@@ -290,75 +290,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &605214565
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 605214566}
-  - component: {fileID: 605214567}
-  m_Layer: 0
-  m_Name: StrategicPinchExperimentManager
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &605214566
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 605214565}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 974917823}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &605214567
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 605214565}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 51413f922e13a49c081c1654d6b6e2a7, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  trefoil: {fileID: 0}
-  flasher: {fileID: 0}
-  calibTrefoil: {fileID: 0}
-  calibModel: {fileID: 0}
-  fingerCursor: {fileID: 0}
-  instructionText: {fileID: 2133389898}
-  explainText: {fileID: 0}
-  R1: 1
-  R2: 1.5
-  rotationSpeed: 90
-  rotationDirection: 1
-  stoppingAngles:
-  - 0
-  - 20
-  - 40
-  - 60
-  - 80
-  - 100
-  dwellTimeSec: 3
-  dwellMoveThreshold: 0.02
-  flashOnDuration: 0.3
-  flashOffDuration: 0.2
-  flashCount: 4
-  confirmDuration: 2
-  blocksMain: 4
 --- !u!1 &827496336
 GameObject:
   m_ObjectHideFlags: 0
@@ -538,8 +469,7 @@ Transform:
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children:
-  - {fileID: 605214566}
+  m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &974917824
