@@ -257,14 +257,19 @@ public class EllipseCircleExperimentManager : MonoBehaviour
         // ── Task instructions ──
         SetStatus("Instructions");
         Explain("DEPTH TASK\n\n" +
-                "A flat oval will spin on screen. It is really a CIRCLE tilted in depth,\n" +
-                "turning toward and away from you.\n\n" +
-                "On each trial:\n" +
-                "  • Watch until you see it as a tilted, spinning circle.\n" +
-                "  • Then reach out and run your hand through its full depth —\n" +
-                "    touch the part that looks NEAREST to you, and the part that\n" +
-                "    looks FARTHEST away.\n" +
-                "  • Keep exploring its nearest and farthest points until the timer ends.\n\n" +
+                "A spinning oval will appear in front of you. Watch it for a moment —\n" +
+                "it will start to look like a solid CIRCLE tilted in depth:\n" +
+                "part of it closer to you, part of it farther away.\n\n" +
+                "Your job is to show us how DEEP the circle looks, using your hand:\n" +
+                "  1. Hold your fingertip as CLOSE to you as the closest part of the circle.\n" +
+                "  2. Then move it straight back, as FAR from you as the farthest part.\n" +
+                "  3. Repeat: close, far, close, far — until the timer ends.\n\n" +
+                "Remember:\n" +
+                "  • Don't chase the spinning ring. Only how close or far your hand is\n" +
+                "    matters — not whether it touches the ring.\n" +
+                "  • If the near and far sides seem to trade places while you watch,\n" +
+                "    that's normal. Just keep marking the closest and farthest spots\n" +
+                "    as you see them right now.\n\n" +
                 "Tell the experimenter when you are ready to begin each trial.");
         yield return WaitSignalStart();
         Explain("");
@@ -355,8 +360,8 @@ public class EllipseCircleExperimentManager : MonoBehaviour
         isRecording   = true;
         framesInReach = 0;
         Explain(practicePrefix +
-                "Reach through the disk's depth — touch its NEAREST and FARTHEST points,\n" +
-                $"exploring back and forth until the timer ends ({reachWindowSeconds:F0}s).");
+                "Show the circle's depth: fingertip as CLOSE as its closest part,\n" +
+                $"then as FAR as its farthest part — back and forth until the timer ends ({reachWindowSeconds:F0}s).");
 
         float startTime = Time.time;
         while (Time.time - startTime < reachWindowSeconds)
