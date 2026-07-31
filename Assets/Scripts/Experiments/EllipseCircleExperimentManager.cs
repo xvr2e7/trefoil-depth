@@ -9,11 +9,22 @@ using TMPro;
 // Ellipse→Circle depth-scale control condition.
 //
 // A flat ellipse (aspect ratio a) is spun about the line of sight so it reads as a
-// circle of diameter D tilted in depth. The participant reaches in real space to
-// the perceived nearest and farthest points of the spinning disk; the hand's depth
-// excursion (max Z − min Z over a timed reach window) is the PERCEIVED depth. Each
-// trial presets the aspect ratio (→ implied slant σ = acos(a)); offline we compare
-// perceived depth to the isotropic prediction D·√(1−a²) to recover the depth scale k.
+// circle of diameter D tilted in depth. The participant TRACES the whole rim of that
+// perceived circle in real space, following it as it turns — so the recorded hand path
+// is the perceived 3D shape, not just its depth extremes.
+//
+// Each sample stores the disk's spin angle, so offline (and in the trial summary here)
+// the trace is de-rotated into the disk's own frame:
+//     p_local = R_z(−DiskAngleDeg) · Inverse(Q0) · (p_world − diskPos)
+// where Q0 is the disk's un-spun world rotation. In that frame the perceived circle is
+// stationary: it lies in a plane through the major (X) axis with z = tan(σ)·y, so the
+// trace yields both a depth extent (Z range) and a fitted slant σ̂ = atan|m|. Each trial
+// presets the aspect ratio (→ implied slant σ = acos(a)); offline we compare the traced
+// depth to the isotropic prediction D·√(1−a²) to recover the depth scale k.
+//
+// OLD MEASURE (superseded, code left commented below): the participant reached only to
+// the perceived nearest and farthest points and the depth was the hand's world max Z −
+// min Z over the reach window.
 //
 // Structure mirrors RotatingTraceExperimentManager (experimenter-driven coroutine,
 // OnGUI panel, refresh-rate query, CSV output) with the calibration blocks removed.
@@ -28,7 +39,7 @@ public class EllipseCircleExperimentManager : MonoBehaviour
     [Tooltip("VIVE Tracker pose source mounted on the participant's hand/finger.")]
     public TrackerPoseProvider trackerProvider;
     public FingerCursorVisualizer fingerCursor;
-    [Tooltip("Min distance (m) between recorded reach samples.")]
+    [Tooltip("Min distance (m) between recorded trace samples.")]
     public float minSampleDistance = 0.001f;
 
     [Header("Disk Defaults")]
@@ -44,7 +55,8 @@ public class EllipseCircleExperimentManager : MonoBehaviour
     public int   repetitions = 3;
     [Tooltip("Practice trials before the main session. Practice data is NOT saved.")]
     public int   practiceTrials = 1;
-    [Tooltip("Length of each reach window in seconds (recording auto-stops after this).")]
+    [Tooltip("Length of each tracing window in seconds (recording auto-stops after this). " +
+             "Long enough for several full laps of the rim — cf. 30 s in RotatingTrace.")]
     public float reachWindowSeconds = 15f;
     [Tooltip("Insert a break after this many completed main trials. 0 disables.")]
     public int   autoBreakInterval = 6;
@@ -54,7 +66,7 @@ public class EllipseCircleExperimentManager : MonoBehaviour
     public TextMeshProUGUI explainText;
 
     [Header("Trail")]
-    [Tooltip("Number of most-recent reach samples shown as guide dots (right-eye only).")]
+    [Tooltip("Number of most-recent trace samples shown as guide dots (right-eye only).")]
     public int   trailPointCount = 15;
     public float trailDotDiameter = 0.006f;
     public Color trailColor = new Color(1f, 0.5f, 0f, 0.35f);  // amber, semi-transparent
@@ -62,10 +74,15 @@ public class EllipseCircleExperimentManager : MonoBehaviour
 
     // ─── Runtime state ─────────────────────────────────────────────────────
 
-    private List<TrialRecord> records      = new List<TrialRecord>();
-    private List<Vector3>     currentTraj   = new List<Vector3>();
-    private List<float>       currentTrajT  = new List<float>();
+    private List<TrialRecord> records           = new List<TrialRecord>();
+    private List<Vector3>     currentTraj       = new List<Vector3>();
+    private List<float>       currentTrajT      = new List<float>();
+    private List<float>       currentTrajAngle  = new List<float>();   // disk spin angle at each sample
     private Vector3 lastSampledPos;
+
+    // Disk pose held fixed for the trial, used to de-rotate the trace (see ToDiskFrame).
+    private Vector3    trialDiskPos     = Vector3.zero;
+    private Quaternion trialDiskBaseRot = Quaternion.identity;
 
     private List<GameObject> trailDots = new List<GameObject>();
 
@@ -73,14 +90,14 @@ public class EllipseCircleExperimentManager : MonoBehaviour
     private bool requestBreak = false;
     private bool dataSaved    = false;
 
-    private bool reachingPhase = false;
-    private bool isRecording   = false;
+    private bool tracingPhase = false;
+    private bool isRecording  = false;
 
     private int   globalTrialIndex = 0;
     private string statusLine = "Idle";
 
     private float displayRefreshRate = 0f;
-    private int   framesInReach = 0;
+    private int   framesInTrace = 0;
 
 
     void Start()
@@ -125,7 +142,7 @@ public class EllipseCircleExperimentManager : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.Space)) signalStart = true;
         if (Input.GetKeyDown(KeyCode.B))     requestBreak = true;
 
-        if (reachingPhase && isRecording) { SampleTracker(); UpdateTrailDots(currentTraj); }
+        if (tracingPhase && isRecording) { SampleTracker(); UpdateTrailDots(currentTraj); }
         else                               HideTrailDots();
     }
 
@@ -256,20 +273,20 @@ public class EllipseCircleExperimentManager : MonoBehaviour
 
         // ── Task instructions ──
         SetStatus("Instructions");
-        Explain("DEPTH TASK\n\n" +
+        Explain("SHAPE TRACING TASK\n\n" +
                 "A spinning oval will appear in front of you. Watch it for a moment —\n" +
                 "it will start to look like a solid CIRCLE tilted in depth:\n" +
                 "part of it closer to you, part of it farther away.\n\n" +
-                "Your job is to show us how DEEP the circle looks, using your hand:\n" +
-                "  1. Hold your fingertip as CLOSE to you as the closest part of the circle.\n" +
-                "  2. Then move it straight back, as FAR from you as the farthest part.\n" +
-                "  3. Repeat: close, far, close, far — until the timer ends.\n\n" +
+                "Your job is to TRACE that tilted circle in the air with your fingertip:\n" +
+                "  1. Put your fingertip on the rim of the circle as you see it in space.\n" +
+                "  2. Follow the rim all the way around, keeping up with it as it turns.\n" +
+                "  3. Keep going round and round until the timer ends.\n\n" +
                 "Remember:\n" +
-                "  • Don't chase the spinning ring. Only how close or far your hand is\n" +
-                "    matters — not whether it touches the ring.\n" +
+                "  • Move your hand in all three directions — reach toward yourself on the\n" +
+                "    near part of the rim and away from yourself on the far part.\n" +
+                "  • Trace the shape you SEE, not a flat oval on a screen.\n" +
                 "  • If the near and far sides seem to trade places while you watch,\n" +
-                "    that's normal. Just keep marking the closest and farthest spots\n" +
-                "    as you see them right now.\n\n" +
+                "    that's normal. Keep tracing the circle as you see it right now.\n\n" +
                 "Tell the experimenter when you are ready to begin each trial.");
         yield return WaitSignalStart();
         Explain("");
@@ -336,14 +353,20 @@ public class EllipseCircleExperimentManager : MonoBehaviour
     {
         currentTraj.Clear();
         currentTrajT.Clear();
-        isRecording   = false;
-        reachingPhase = false;
+        currentTrajAngle.Clear();
+        isRecording  = false;
+        tracingPhase = false;
 
         if (disk != null)
         {
             disk.SetParameters(diameter, trial.aspectRatio, rotationSpeed, trial.direction);
             disk.ResumeRotation();
             disk.SetVisibility(true);
+
+            // The disk spins about its local Z; everything else about its pose is fixed
+            // for the trial, so capture the un-spun basis once and reuse it per sample.
+            trialDiskPos     = disk.transform.position;
+            trialDiskBaseRot = disk.transform.rotation * Quaternion.Euler(0f, 0f, -disk.GetCurrentAngle());
         }
 
         string statusPrefix   = isPractice ? "Practice" : $"Trial {trialIndex + 1}";
@@ -351,46 +374,56 @@ public class EllipseCircleExperimentManager : MonoBehaviour
 
         Explain(practicePrefix +
                 "Watch the spinning shape until it looks like a tilted circle.\n" +
-                "When ready, tell the experimenter and begin reaching.");
+                "When ready, tell the experimenter and begin tracing.");
         Say("");
         SetStatus($"{statusPrefix} — waiting (a={trial.aspectRatio:F2})");
         yield return WaitSignalStart();
 
-        reachingPhase = true;
-        isRecording   = true;
-        framesInReach = 0;
+        tracingPhase = true;
+        isRecording  = true;
+        framesInTrace = 0;
         Explain(practicePrefix +
-                "Show the circle's depth: fingertip as CLOSE as its closest part,\n" +
-                $"then as FAR as its farthest part — back and forth until the timer ends ({reachWindowSeconds:F0}s).");
+                "Trace the rim of the tilted circle with your fingertip — follow it\n" +
+                $"around as it turns, lap after lap, until the timer ends ({reachWindowSeconds:F0}s).");
 
         float startTime = Time.time;
         while (Time.time - startTime < reachWindowSeconds)
         {
-            framesInReach++;
+            framesInTrace++;
             float remaining = reachWindowSeconds - (Time.time - startTime);
             SetStatus($"{statusPrefix} — {remaining:F0}s | samples: {currentTraj.Count}");
             yield return null;
         }
 
-        isRecording   = false;
-        reachingPhase = false;
+        isRecording  = false;
+        tracingPhase = false;
         if (disk != null) { disk.PauseRotation(); disk.SetVisibility(false); }
 
         float duration     = Time.time - startTime;
-        float measuredRate = duration > 0f ? framesInReach / duration : 0f;
+        float measuredRate = duration > 0f ? framesInTrace / duration : 0f;
 
         if (!isPractice)
         {
+            // ── OLD two-point reach measure — superseded by the full-rim trace below ──
             // Front = nearest in depth (min world Z), Back = farthest (max world Z).
             // NOTE: assumes the scene camera faces +Z. If it looks down −Z, swap.
-            Vector3 front = Vector3.zero, back = Vector3.zero;
-            float minZ = float.MaxValue, maxZ = float.MinValue;
-            foreach (var p in currentTraj)
-            {
-                if (p.z < minZ) { minZ = p.z; front = p; }
-                if (p.z > maxZ) { maxZ = p.z; back  = p; }
-            }
-            float perceivedDepth = (currentTraj.Count > 0) ? (maxZ - minZ) : 0f;
+            // Vector3 front = Vector3.zero, back = Vector3.zero;
+            // float minZ = float.MaxValue, maxZ = float.MinValue;
+            // foreach (var p in currentTraj)
+            // {
+            //     if (p.z < minZ) { minZ = p.z; front = p; }
+            //     if (p.z > maxZ) { maxZ = p.z; back  = p; }
+            // }
+            // float perceivedDepth = (currentTraj.Count > 0) ? (maxZ - minZ) : 0f;
+
+            // ── Whole traced rim, de-rotated into the disk's own (stationary) frame ──
+            // In that frame the perceived circle sits in a plane through the major (X)
+            // axis: z = tan(σ̂)·y. So the trace gives a depth extent AND a fitted slant,
+            // both independent of which way the scene camera happens to face.
+            List<Vector3> local = ToDiskFrame(currentTraj, currentTrajAngle);
+            Vector3 centroid    = Centroid(local);
+            Vector3 extent      = Extent(local);
+            float   fitSlantDeg = FitSlantDeg(local, centroid);
 
             float worldDiameter = disk != null ? disk.GetWorldDiameter()      : diameter;
             float predicted     = disk != null ? disk.GetImpliedDepthExtent() : 0f;
@@ -401,9 +434,14 @@ public class EllipseCircleExperimentManager : MonoBehaviour
                 trialIndex, trial.configurationId, trial.repetitionNumber,
                 trial.aspectRatio, slantDeg, worldDiameter, predicted,
                 trial.rotationSpeed, trial.direction, duration,
-                front, back, perceivedDepth,
+                centroid, extent, fitSlantDeg,
                 displayRefreshRate, measuredRate,
-                new List<Vector3>(currentTraj), new List<float>(currentTrajT)));
+                new List<Vector3>(currentTraj), new List<float>(currentTrajT),
+                new List<float>(currentTrajAngle), local));
+
+            Debug.Log($"[EllipseCircle] a={trial.aspectRatio:F2} " +
+                      $"traced depth={extent.z:F3} m (predicted {predicted:F3} m), " +
+                      $"slant {fitSlantDeg:F1}° vs implied {slantDeg:F1}°, {local.Count} pts");
         }
 
         Explain((isPractice ? "Practice complete (not saved).\n" : "Trial complete.\n") +
@@ -440,6 +478,69 @@ public class EllipseCircleExperimentManager : MonoBehaviour
     {
         currentTraj.Add(worldPos);
         currentTrajT.Add(Time.time);
+        currentTrajAngle.Add(disk != null ? disk.GetCurrentAngle() : 0f);
+    }
+
+
+    // ─── Trace geometry ────────────────────────────────────────────────────
+
+    // World → disk frame, undoing the spin each sample was taken under:
+    //     p_local = R_z(−angle) · Inverse(Q0) · (p_world − diskPos)
+    // Metres are preserved (no divide by lossyScale) so extents stay comparable to
+    // WorldDiameter and PredictedDepth.
+    List<Vector3> ToDiskFrame(IList<Vector3> world, IList<float> angles)
+    {
+        var local = new List<Vector3>(world.Count);
+        Quaternion invBase = Quaternion.Inverse(trialDiskBaseRot);
+
+        for (int i = 0; i < world.Count; i++)
+        {
+            float angle = i < angles.Count ? angles[i] : 0f;
+            Vector3 v   = invBase * (world[i] - trialDiskPos);
+            local.Add(Quaternion.Euler(0f, 0f, -angle) * v);
+        }
+
+        return local;
+    }
+
+    static Vector3 Centroid(IList<Vector3> pts)
+    {
+        if (pts.Count == 0) return Vector3.zero;
+        Vector3 sum = Vector3.zero;
+        foreach (var p in pts) sum += p;
+        return sum / pts.Count;
+    }
+
+    // Axis-aligned span of the trace in the disk frame: X ≈ major axis, Y ≈ minor axis
+    // as drawn, Z = depth.
+    static Vector3 Extent(IList<Vector3> pts)
+    {
+        if (pts.Count == 0) return Vector3.zero;
+
+        Vector3 min = pts[0], max = pts[0];
+        foreach (var p in pts)
+        {
+            min = Vector3.Min(min, p);
+            max = Vector3.Max(max, p);
+        }
+        return max - min;
+    }
+
+    // Least-squares slope of z on y about the centroid; the perceived circle satisfies
+    // z = tan(σ)·y, so σ̂ = atan|m|. Returns 0 if the trace has no vertical spread.
+    static float FitSlantDeg(IList<Vector3> pts, Vector3 centroid)
+    {
+        float syy = 0f, syz = 0f;
+        foreach (var p in pts)
+        {
+            float dy = p.y - centroid.y;
+            float dz = p.z - centroid.z;
+            syy += dy * dy;
+            syz += dy * dz;
+        }
+
+        if (syy < 1e-9f) return 0f;
+        return Mathf.Atan(Mathf.Abs(syz / syy)) * Mathf.Rad2Deg;
     }
 
 
@@ -481,18 +582,29 @@ public class EllipseCircleExperimentManager : MonoBehaviour
     {
         string path = Path.Combine(Application.persistentDataPath, $"EllipseCircle_{timestamp}.csv");
         var csv = new StringBuilder();
+
+        // OLD header (two-point reach): kept for reference alongside the old measure.
+        // csv.AppendLine("TrialIndex,ConfigId,RepetitionNumber,AspectRatio,ImpliedSlantDeg," +
+        //                "WorldDiameter,PredictedDepth,RotationSpeed,Direction,ReachDuration," +
+        //                "FrontX,FrontY,FrontZ,BackX,BackY,BackZ,PerceivedDepthZ," +
+        //                "DisplayRefreshRateHz,MeasuredFrameRateHz,Timestamp");
+
+        // Centroid/Extent/FitSlant are all in the de-rotated disk frame, world metres.
         csv.AppendLine("TrialIndex,ConfigId,RepetitionNumber,AspectRatio,ImpliedSlantDeg," +
-                       "WorldDiameter,PredictedDepth,RotationSpeed,Direction,ReachDuration," +
-                       "FrontX,FrontY,FrontZ,BackX,BackY,BackZ,PerceivedDepthZ," +
+                       "WorldDiameter,PredictedDepth,RotationSpeed,Direction,TraceDuration,NumTracePoints," +
+                       "CentroidX,CentroidY,CentroidZ,ExtentX,ExtentY,ExtentZ," +
+                       "TracedDepthZ,FitSlantDeg," +
                        "DisplayRefreshRateHz,MeasuredFrameRateHz,Timestamp");
 
         foreach (var r in records)
         {
             csv.AppendLine(
                 $"{r.trialIndex},{r.configId},{r.repetitionNumber},{r.aspectRatio:F4},{r.slantDeg:F2}," +
-                $"{r.worldDiameter:F4},{r.predictedDepth:F4},{r.rotationSpeed:F1},{r.direction},{r.duration:F2}," +
-                $"{r.front.x:F4},{r.front.y:F4},{r.front.z:F4}," +
-                $"{r.back.x:F4},{r.back.y:F4},{r.back.z:F4},{r.perceivedDepth:F4}," +
+                $"{r.worldDiameter:F4},{r.predictedDepth:F4},{r.rotationSpeed:F1},{r.direction}," +
+                $"{r.duration:F2},{r.traj.Count}," +
+                $"{r.centroid.x:F4},{r.centroid.y:F4},{r.centroid.z:F4}," +
+                $"{r.extent.x:F4},{r.extent.y:F4},{r.extent.z:F4}," +
+                $"{r.extent.z:F4},{r.fitSlantDeg:F2}," +
                 $"{r.displayRefreshRate:F2},{r.measuredFrameRate:F2},{timestamp}");
         }
 
@@ -504,15 +616,25 @@ public class EllipseCircleExperimentManager : MonoBehaviour
     {
         string path = Path.Combine(Application.persistentDataPath, $"EllipseCircle_Traj_{timestamp}.csv");
         var csv = new StringBuilder();
-        csv.AppendLine("TrialIndex,PointIndex,WorldX,WorldY,WorldZ,TimeStamp");
+
+        // OLD header (world samples only — no way to de-rotate the trace offline):
+        // csv.AppendLine("TrialIndex,PointIndex,WorldX,WorldY,WorldZ,TimeStamp");
+
+        // DiskAngleDeg is the spin angle at the moment of the sample; Local* is that
+        // sample already de-rotated into the disk frame (see ToDiskFrame).
+        csv.AppendLine("TrialIndex,PointIndex,WorldX,WorldY,WorldZ,DiskAngleDeg,TimeStamp," +
+                       "LocalX,LocalY,LocalZ");
 
         foreach (var r in records)
         {
             for (int i = 0; i < r.traj.Count; i++)
             {
                 Vector3 p = r.traj[i];
-                float   t = i < r.trajT.Count ? r.trajT[i] : 0f;
-                csv.AppendLine($"{r.trialIndex},{i},{p.x:F4},{p.y:F4},{p.z:F4},{t:F3}");
+                float   a = i < r.trajAngle.Count ? r.trajAngle[i] : 0f;
+                float   t = i < r.trajT.Count     ? r.trajT[i]     : 0f;
+                Vector3 l = i < r.trajLocal.Count ? r.trajLocal[i] : Vector3.zero;
+                csv.AppendLine($"{r.trialIndex},{i},{p.x:F4},{p.y:F4},{p.z:F4},{a:F2},{t:F3}," +
+                               $"{l.x:F4},{l.y:F4},{l.z:F4}");
             }
         }
 
@@ -527,21 +649,28 @@ public class EllipseCircleExperimentManager : MonoBehaviour
     {
         public int    trialIndex, configId, repetitionNumber, direction;
         public float  aspectRatio, slantDeg, worldDiameter, predictedDepth, rotationSpeed, duration;
-        public Vector3 front, back;
-        public float  perceivedDepth, displayRefreshRate, measuredFrameRate;
-        public List<Vector3> traj;
+        // public Vector3 front, back;          // OLD two-point reach measure
+        // public float   perceivedDepth;       // OLD: world max Z − min Z
+        public Vector3 centroid, extent;        // de-rotated disk frame, world metres
+        public float  fitSlantDeg;
+        public float  displayRefreshRate, measuredFrameRate;
+        public List<Vector3> traj;              // world
         public List<float>   trajT;
+        public List<float>   trajAngle;         // disk spin angle per sample
+        public List<Vector3> trajLocal;         // de-rotated disk frame
 
         public TrialRecord(int idx, int cfg, int rep, float a, float slant, float worldD, float pred,
-                           float spd, int dir, float dur, Vector3 f, Vector3 b, float perc,
-                           float refreshHz, float measuredHz, List<Vector3> trajectory, List<float> trajTimes)
+                           float spd, int dir, float dur, Vector3 cen, Vector3 ext, float fitSlant,
+                           float refreshHz, float measuredHz, List<Vector3> trajectory, List<float> trajTimes,
+                           List<float> trajAngles, List<Vector3> trajLocalPoints)
         {
             trialIndex = idx; configId = cfg; repetitionNumber = rep;
             aspectRatio = a; slantDeg = slant; worldDiameter = worldD; predictedDepth = pred;
             rotationSpeed = spd; direction = dir; duration = dur;
-            front = f; back = b; perceivedDepth = perc;
+            centroid = cen; extent = ext; fitSlantDeg = fitSlant;
             displayRefreshRate = refreshHz; measuredFrameRate = measuredHz;
             traj = trajectory; trajT = trajTimes;
+            trajAngle = trajAngles; trajLocal = trajLocalPoints;
         }
     }
 }
